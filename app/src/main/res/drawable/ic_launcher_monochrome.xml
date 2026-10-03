@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Wave N mark: sound bars spelling N. Drawn from the "waven" symbol in the iPhone repo's design/icons.html. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1536"
+    android:viewportHeight="1536">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M412,520a32,32 0 0,1 64,0v496a32,32 0 0,1 -64,0zM1060,520a32,32 0 0,1 64,0v496a32,32 0 0,1 -64,0zM520,520a32,32 0 0,1 64,0v156a32,32 0 0,1 -64,0zM628,605a32,32 0 0,1 64,0v156a32,32 0 0,1 -64,0zM736,690a32,32 0 0,1 64,0v156a32,32 0 0,1 -64,0zM844,775a32,32 0 0,1 64,0v156a32,32 0 0,1 -64,0zM952,860a32,32 0 0,1 64,0v156a32,32 0 0,1 -64,0z" />
+</vector>

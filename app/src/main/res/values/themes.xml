@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch: the Wave N mark on the header colour, as on iPhone (D30). -->
+    <style name="Theme.Nougat.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/header</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Nougat</item>
+    </style>
+
+    <style name="Theme.Nougat" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/header</item>
+    </style>
+</resources>

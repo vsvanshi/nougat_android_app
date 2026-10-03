@@ -7,7 +7,7 @@ Read `AGENTS.md` first. The iPhone version at `/Users/varun/work/NougatMobileApp
 - Kotlin, Jetpack Compose, one `app` module, Gradle with the Kotlin DSL and the Gradle wrapper.
 - Material 3 Compose components for structure (scaffold, top app bar, navigation bar, dialogs, bottom sheets, menus, switch, snackbar host), themed entirely with Nougat's tokens. Our own Compose drawing for the header, rows, play button, chips, slider and visualizer, as on iPhone.
 - Playback: AndroidX Media3 (ExoPlayer and a `MediaSessionService`). It gives the notification, lock screen, Bluetooth and car buttons, audio focus and "becoming noisy" handling.
-- Library: the system `MediaStore`, so music already on the phone appears without copying (open question 4 in `HANDOFF.md`).
+- Library: the system `MediaStore`, so music already on the phone appears without copying (decision A9 in `HANDOFF.md`).
 - Saved state: small JSON files in the app's files folder, using Android's built-in `org.json`, as on iPhone (`library`, `player`, `playlists`, `equalizer`). The accent goes in `SharedPreferences`.
 - No dependencies outside AndroidX / Jetpack without Varun's approval. In particular no image library (decode artwork with `MediaMetadataRetriever` and `BitmapFactory`) and no FFT library (write a small radix-2 FFT).
 - `minSdk` 26 (Android 8.0), `targetSdk` and `compileSdk` the latest stable. `applicationId` `in.varunsuryawanshi.nougat`. The Kotlin `namespace` is `app.nougat`, because `in` is a Kotlin keyword and cannot start a package name without backticks.
@@ -30,7 +30,7 @@ app/src/test/                JVM unit tests
 
 ## Commands
 
-Fill these in for real during P0.2; until then they are the intended ones.
+Checked in P0.2. Gradle 9.8.0 (wrapper), Android Gradle plugin 9.4.1 with its built-in Kotlin, Kotlin 2.4.20 (Compose compiler plugin), `compileSdk` and `targetSdk` 37. Versions are written inline in `app/build.gradle.kts`; there is no version catalog.
 
 ```bash
 ./gradlew assembleDebug
@@ -52,6 +52,8 @@ adb shell am start -n in.varunsuryawanshi.nougat/app.nougat.MainActivity
 adb logcat -s Nougat
 ```
 
+The SDK is at `~/Library/Android/sdk` (not Homebrew's default root), so pass `--sdk_root=$HOME/Library/Android/sdk` to `sdkmanager`; Gradle finds it through `sdk.dir` in `local.properties`, which is not committed.
+
 Test music: `adb push "<folder>" /sdcard/Music/`. A 5,000-song test library: run `Tools/make-test-library.sh "<folder>"` from the iPhone repo (needs ffmpeg, which is installed).
 
 ## Tasks
@@ -60,22 +62,23 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 0: set up
 
-- [ ] **P0.1 Tools.** Ask Varun before downloading anything. Android Studio is not needed: install Google's command-line tools (Homebrew cask `android-commandlinetools`), then with `sdkmanager` an SDK platform, build tools, platform tools, the emulator and one arm64 system image. Create an emulator with `avdmanager`; it can run without a window and be driven with `adb`. JDK 17 and `adb` are already on the Mac; the Android SDK is not.
-  Done when: an emulator (or Varun's phone) shows in `adb devices`.
-- [ ] **P0.2 Project.** (The repository and its `origin` remote already exist.) `.gitignore` (build outputs, `local.properties`, keystores), Gradle wrapper, empty Compose app with the ids above, MIT `LICENSE` in Varun's name, as in the iPhone repo. Write the real commands above.
-  Done when: `./gradlew assembleDebug` builds and the app opens on the emulator.
-- [ ] **P0.3 On Varun's phone** (if he has an Android phone; open question 2).
+- [x] **P0.1 Tools.** Varun agreed to the downloads (2026-10-03). Android Studio is not needed: install Google's command-line tools (Homebrew cask `android-commandlinetools`), then with `sdkmanager` an SDK platform, build tools and platform tools. No emulator: testing is on Varun's phone (decision A7). JDK 17 and `adb` are already on the Mac.
+  Done when: `sdkmanager --list_installed` shows the platform and build tools, and Varun's phone shows as `device` in `adb devices`.
+- [x] **P0.2 Project.** (The repository and its `origin` remote already exist.) `.gitignore` (build outputs, `local.properties`, keystores), Gradle wrapper, empty Compose app with the ids above, MIT `LICENSE` in Varun's name, as in the iPhone repo. Write the real commands above.
+  Done when: `./gradlew assembleDebug` builds and the app opens on Varun's phone.
+  Also done here, at Varun's request: the Wave N launcher icon (adaptive, with a monochrome layer for themed icons) and the launch screen (the mark on the header colour, through AndroidX `core-splashscreen`), as on iPhone (D30).
+- [x] **P0.3 On Varun's phone** (Galaxy A07, Android 16; decision A7).
   Done when: Varun sees the app on it.
 
 ### Phase 1: design system and shell
 
-- [ ] **P1.1 Colours and accents.** Every fixed colour and the six accents from the iPhone `DESIGN.md` section 2, light and dark; the accent as a composition local, chosen in `SharedPreferences`, teal by default. Reference: `Nougat/DesignSystem/Accent.swift`, asset colour sets, `NougatTests/DesignSystemTests.swift` (port the contrast checks).
+- [ ] **P1.1 Colours and accents.** Every fixed colour and the six accents from the iPhone `DESIGN.md` section 2, light and dark, plus the seventh "System" accent on Android 12 and later (decision A14); the accent as a composition local, chosen in `SharedPreferences`, teal by default. Reference: `Nougat/DesignSystem/Accent.swift`, asset colour sets, `NougatTests/DesignSystemTests.swift` (port the contrast checks).
   Done when: the ported tests pass and a debug gallery shows every swatch in light and dark.
 - [ ] **P1.2 Type, metrics, icons.** Text styles in sp, sizes in dp, the 14 icons as vector drawables. Reference: `Typography.swift`, `Metrics.swift`.
   Done when: the gallery shows every style and icon.
 - [ ] **P1.3 Components.** Header page (the header is the first list item, the header colour fills behind the status bar, the bar title fades in once the header has left the screen; see iPhone decisions D24, D28, D54), rows with `more_vert` and long-press menu, play button, filled and text buttons, chip, slider (horizontal and vertical, adjustable with TalkBack), snackbar with an action, empty state, toggle icon. Reference: `Page.swift`, `Components/*.swift`, `design/preview.html`.
   Done when: the gallery matches the iPhone preview in light and dark.
-- [ ] **P1.4 App shell.** Bottom navigation (Folders, Songs, Playlists) with a back stack per tab, a search entry, the mini player above the navigation bar, a Now playing screen; edge to edge; system and predictive back. Reference: `AppShell.swift`.
+- [ ] **P1.4 App shell.** Bottom navigation (Folders, Songs, Playlists) with a back stack per tab, a search icon in the top app bar (decision A11), the mini player above the navigation bar, a Now playing screen; edge to edge; system and predictive back. Reference: `AppShell.swift`.
   Done when: the Back and Edge-to-edge rows of `DESIGN.md` section 4 pass on a device.
 
 ### Phase 2: library
@@ -86,8 +89,8 @@ Every task: build, run, check its "Done when" yourself, then tick.
   Done when: the ported tests pass.
 - [ ] **P2.3 Artwork.** Embedded art, else `cover` or `folder` .jpg/.png beside the song; thumbnails cached in memory and in the cache folder; letter tile when none. Reference: `ArtworkStore.swift`.
   Done when: thumbnails show and scrolling stays smooth.
-- [ ] **P2.4 Keeping up to date and removing.** Re-read when the app returns and when `MediaStore` reports changes. Removing follows open question 5.
-  Done when: songs added or deleted outside the app appear or vanish without a restart.
+- [ ] **P2.4 Keeping up to date and removing.** Re-read when the app returns and when `MediaStore` reports changes. Removing means hiding (decision A10): a hidden folder or song stops showing and no file is ever deleted; the hidden list is saved and can be undone from Settings.
+  Done when: songs added or deleted outside the app appear or vanish without a restart, and hiding and unhiding a folder works and survives a restart.
 - [ ] **P2.5 Screens.** Folders, Songs (sort menu), Search, with pull to refresh. Reference: `FolderScreen.swift`, `SongsScreen.swift`.
   Done when: all three match the iPhone screens.
 
@@ -127,7 +130,7 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 7: finish
 
-- [ ] **P7.1 Settings.** Accent swatches, version, the Material Icons licence (text in the iPhone repo's `Nougat/Resources/Licences`). Reference: `SettingsScreen.swift`.
+- [ ] **P7.1 Settings.** Accent swatches (seven on Android 12 and later), hidden folders and songs with a way to show them again, version, the Material Icons licence (text in the iPhone repo's `Nougat/Resources/Licences`). Reference: `SettingsScreen.swift`.
   Done when: changing the accent recolours the app at once and survives a restart.
 - [ ] **P7.2 Contract audit.** Walk every row of `DESIGN.md` section 4 on a device and fix gaps.
   Done when: every row is recorded as passing in `HANDOFF.md`.
@@ -139,5 +142,5 @@ Every task: build, run, check its "Done when" yourself, then tick.
 ### Phase 8: release
 
 - [ ] **P8.1 README.** What it is, how to add music, how to build.
-- [ ] **P8.2 Signed APK.** A release keystore kept outside the repository; a signed APK on GitHub Releases.
-- [ ] **P8.3 Play Store (optional).** Needs Varun's Play developer account. The listing must not suggest the app is part of Android or made by Google (open question 1).
+- [ ] **P8.2 Signed APK.** A release keystore kept outside the repository; a signed APK on GitHub Releases (decision A12).
+- [ ] **P8.3 Play Store.** Not planned (decision A12). If Varun changes his mind: needs his Play developer account, and the listing follows decision A6.

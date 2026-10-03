@@ -8,7 +8,7 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 
 ## 2. Shared exactly (from the iPhone `DESIGN.md`)
 
-- **Colour** (section 2): every fixed token (`background`, `paper`, `surface`, `fill`, `hairline`, `ink`, `ink2`, `ink3`, `header`, `onHeader`, `onHeader2`, `avatar`, `onAvatar`, `inverse`, `onInverse`) with its light and dark values, and all six accents (teal default, amber, orange, pink, indigo, blue) with their contrast rules. Port the hex values exactly; the iPhone tests check them.
+- **Colour** (section 2): every fixed token (`background`, `paper`, `surface`, `fill`, `hairline`, `ink`, `ink2`, `ink3`, `header`, `onHeader`, `onHeader2`, `avatar`, `onAvatar`, `inverse`, `onInverse`) with its light and dark values, and all six accents (teal default, amber, orange, pink, indigo, blue) with their contrast rules. Port the hex values exactly; the iPhone tests check them. Android adds a seventh, "System" (see section 3).
 - **Type** (section 3): the same styles and sizes, in sp, so they follow the system font size.
 - **Layout** (section 4): the same sizes, in dp (8 grid, 16 margin, 72 keyline, 72 and 56 rows, 48 touch target, 56 header play button, 64 Now playing play button).
 - **Shape, depth, motion** (section 5): the same radii, the two shadow levels, the 300 / 225 / 195 ms motion with the standard curve, and the fade under reduced motion.
@@ -22,7 +22,7 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 |---|---|---|
 | Font | Roboto bundled | Roboto is the system font: nothing to bundle, no font licence to show |
 | Top bar | System glass bar over the header | A transparent Material top app bar over the header. Title fades in when the header scrolls away; it becomes a solid `paper` bar with `ink` text. Edge to edge, `header` colour behind the status bar |
-| Tabs | System tab bar with a search tab | Material bottom navigation bar: Folders, Songs, Playlists. Search is an icon in the top app bar of each tab (open question in `HANDOFF.md`) |
+| Tabs | System tab bar with a search tab | Material bottom navigation bar: Folders, Songs, Playlists. Search is an icon in the top app bar of each tab (decision A11) |
 | Mini player | System bottom-accessory slot | Our own bar above the bottom navigation, `surface` with depth 1, same contents; tap opens Now playing |
 | Now playing | Full-screen cover with zoom transition | Full-screen screen; system back and predictive back close it, and so does a swipe down |
 | Menus, dialogs, sheets | System iOS menus and alerts | Material dropdown menus, alert dialogs and modal bottom sheets |
@@ -30,6 +30,8 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 | Swipe actions | System swipe actions | Swipe a song row to reveal "Add to playlist", or "Remove" in a playlist |
 | Haptics | `sensoryFeedback` | `HapticFeedbackConstants`: `CLOCK_TICK` for the EQ 0 dB tick, `CONFIRM` for adding to a playlist (Android 11 and later; `VIRTUAL_KEY` before) |
 | Toggle switch | System switch tinted `switchOn` | Material switch tinted `switchOn` |
+| Accent | Six accents | Seven: the six plus "System", the wallpaper colour from Material You (the primary of `dynamicLightColorScheme` / `dynamicDarkColorScheme`) on Android 12 and later, not offered on older versions (decision A14) |
+| Removing | "Remove" deletes the app's copy | "Hide": Nougat stops showing the folder or song; no file is deleted. Settings lists hidden items to show again (decision A10) |
 
 ## 4. Native contract on Android
 

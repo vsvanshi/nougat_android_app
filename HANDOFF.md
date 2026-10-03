@@ -7,12 +7,14 @@ Read `AGENTS.md` first. Keep this file short and true: rewrite "Current state" e
 | | |
 |---|---|
 | Updated | 2026-10-03 by Claude |
-| Phase | Not started. Only the documents exist: `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `PLAN.md`, this file. |
-| Next task | Ask Varun the Open questions (at least the phone and the tools), then P0.1. |
-| Code | None. |
-| Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`. The documents are committed and pushed. Commit or push only when Varun says. |
-| Tools on the Mac | JDK 17 (Zulu and JetBrains) and `adb` are installed. Android Studio and the Android SDK are not. ffmpeg is installed. |
-| Known broken | Nothing. |
+| Phase | 0, set up, finished. Varun confirmed the app, icon and launch screen on his phone (P0.3). Now phase 1. |
+| Next task | P1.1: colours and accents. |
+| Code | Empty Compose app: `MainActivity` shows "Nougat" on the header colour. Wave N launcher icon (`res/drawable/ic_launcher_*.xml`, `res/mipmap-anydpi-v26/ic_launcher.xml`) and launch screen (`res/values/themes.xml`). |
+| Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`, private. Commit or push only when Varun says. |
+| Tools on the Mac | JDK 17 (Zulu and JetBrains), ffmpeg, Homebrew. Android command-line tools from Homebrew (`sdkmanager` 22.0 on the path). SDK at `~/Library/Android/sdk` with `platforms;android-37.0`, `build-tools;37.0.0`, `platform-tools` 37.0.1 (about 380 MB); SDK licences accepted with Varun's agreement. `adb` on the path is Homebrew's, same version as the SDK one. No emulator (A7). |
+| Test phone | Samsung Galaxy A07, Android 16 (API 36), One UI 8.5, arm64, 720 x 1600 at 300 dpi (about 384 dp wide, a narrow screen). USB debugging is on and this Mac is authorised; it shows as `device` in `adb devices`. |
+| Known broken | Nothing. Two harmless build warnings: `android.enableJetifier=true` comes from Varun's own `~/.gradle/gradle.properties` (it overrides the project's file, so it cannot be turned off here; do not edit his file without asking), and `Configuration.setVisible` comes from inside the Android Gradle plugin. |
+| Gradle download | The wrapper's own Java download of the Gradle zip times out on the GitHub redirect on this Mac, though Gradle itself reaches Google's and Maven's repositories fine. Gradle 9.8.0 was fetched with `curl`, checked against its published SHA-256 and placed in `~/.gradle/wrapper/dists`. A future Gradle upgrade will need the same. |
 
 ## Where the reference is
 
@@ -20,15 +22,7 @@ The finished iPhone version: `/Users/varun/work/NougatMobileApp`. Read its `HAND
 
 ## Open questions for Varun
 
-1. **The phone.** Varun has an Android phone (said 2026-10-03). Which model and Android version? To test on it from the Mac, it needs Developer options with USB debugging on, then a USB cable; `adb` can then install builds, take screenshots and tap, so Claude can check screens on it directly.
-2. **Oldest Android supported.** The plan says Android 8.0 (API 26), which covers almost every phone in use. Newer only (Android 10 or 12) would simplify storage and the equalizer.
-3. **Where the music comes from.** The plan reads the music already on the phone through the system's media library, so copying music into the Music folder over USB is enough, the way Android players worked in 2016. The iPhone way, copying folders into the app, would also work on Android but uses twice the space. Media library (recommended) or copying?
-4. **What "remove" means.** With the media library, songs are the real files on the phone, not a copy. Options: "Hide folder" (Nougat stops showing it; nothing is deleted) and "Delete from phone" (deletes the file after Android's own confirmation). The plan assumes both, with hide as the usual one.
-5. **Search.** Bottom navigation with Folders, Songs and Playlists, and search as an icon at the top (usual on Android), or a fourth Search tab like the iPhone?
-6. **Installing the tools.** Android Studio is not needed. The plan's suggestion: Google's command-line tools through Homebrew (`brew install --cask android-commandlinetools`), then with `sdkmanager` the platform tools, one SDK platform, build tools, the emulator and one arm64 system image; about 2 to 2.5 GB in all, most of it the emulator image, plus Gradle's own downloads on the first build. The emulator runs without a window (`emulator -avd <name> -no-window`) and Claude drives it with `adb` (install, `screencap`, `input tap`). May Claude download these?
-7. **Distribution.** A signed APK on GitHub Releases (free), or the Play Store too (one-time USD 25 developer account)?
-8. **Repository.** `nougat_android_app` exists on GitHub. Public, like the iPhone one, or private for now?
-9. **Accent "System".** On Android 12 and later the system can supply colours from the wallpaper (Material You). Add it as a seventh accent choice, or keep the six?
+None right now.
 
 ## Decisions
 
@@ -42,6 +36,14 @@ Settled. Do not reverse without Varun. Add new ones at the bottom with a date.
 | A4 | 2026-10-03 | No dependencies outside AndroidX / Jetpack without Varun's approval. | Same as the iPhone version: buildable with the stock tools, nothing to trust beyond Google's own libraries. |
 | A5 | 2026-10-03 | Commit only when Varun says; short plain messages; no co-author or AI attribution lines. | Varun's standing instruction. |
 | A6 | 2026-10-03 | The name stays Nougat on Android, with the same Wave N icon. A Play Store listing, if one comes, gets a distinctive title such as "Nougat: Folder Music Player" and says it is independent of Google. | Varun's choice. Play already allows other apps with "Nougat" in the name; only a listing needs to stand out from them. |
+| A7 | 2026-10-03 | Testing is on Varun's phone over USB (`adb`). No emulator. | Varun's choice. A real device is the truer test and saves the emulator image download. |
+| A8 | 2026-10-03 | `minSdk` 26 (Android 8.0). | Varun's choice: covers almost every phone in use. |
+| A9 | 2026-10-03 | Music comes from the system media library (`MediaStore`); nothing is copied into the app. | The usual Android way; Varun's choice. |
+| A10 | 2026-10-03 | Where the iPhone version removes a song or folder, Android only hides it: Nougat stops showing it and never deletes a file. Hidden items can be shown again from Settings. | Varun's choice: no "Delete from phone". Without an unhide, a hidden folder would be lost for good. |
+| A11 | 2026-10-03 | Where Android has a usual way of doing something, follow it. Search is an icon in the top app bar, not a fourth tab. | Varun's choice. |
+| A12 | 2026-10-03 | Distribution: a signed APK on GitHub Releases only. No Play Store for now. | Varun's choice. |
+| A13 | 2026-10-03 | The repository stays private for now. | Varun's choice. Still keep private details out of it, in case it becomes public. |
+| A14 | 2026-10-03 | A seventh accent, "System", uses the wallpaper colours (Material You) on Android 12 and later; it is not offered on older versions. Teal stays the default. | Varun's choice. |
 
 ## Session log
 
@@ -54,6 +56,24 @@ Newest first. Copy this template for each session:
 - Verified: built? tests run? seen on a device? Say "not verified" where true
 - Left for next: anything half-done, broken, or worth knowing
 ```
+
+### 2026-10-03, Claude (fourth session)
+- Tasks: P0.2, finished. Launcher icon and launch screen pulled forward at Varun's request.
+- Changed: new `settings.gradle.kts`, `build.gradle.kts`, `gradle.properties`, Gradle wrapper, `.gitignore`, `LICENSE` (copied from the iPhone repo), `app/` (manifest, `MainActivity.kt`, icon and theme resources); `local.properties` written but ignored. `PLAN.md` (commands checked, P0.2 ticked).
+- Verified: `./gradlew assembleDebug` builds; `testDebugUnitTest` runs (no tests yet). Installed on the phone and launched: screenshots show the launch screen with the mark, then the app with light status-bar icons over the header colour. The launcher icon on the home screen was not seen by the agent.
+- Left for next: P0.3 (Varun looks at the app and the icon), then P1.1. Varun then confirmed the icon (P0.3 ticked) and asked for a commit.
+
+### 2026-10-03, Claude (third session)
+- Tasks: P0.1, finished.
+- Changed: installed the `android-commandlinetools` Homebrew cask, then the SDK packages above into `~/Library/Android/sdk`; Varun agreed to accepting the SDK licences. `PLAN.md` (P0.1 ticked, SDK location note), this file.
+- Verified: `sdkmanager --list_installed` shows the platform, build tools and platform tools; the phone shows as `device` in `adb devices`.
+- Left for next: P0.2.
+
+### 2026-10-03, Claude (second session)
+- Tasks: none from the plan. Took Varun's answers to the open questions and recorded them as decisions A7 to A14.
+- Changed: `HANDOFF.md`, `PLAN.md` (open question numbers replaced by decision numbers, no emulator, no Play Store, hide instead of remove, seventh accent), `DESIGN.md` (search icon, hide, System accent).
+- Verified: read the phone's details over `adb`; checked on GitHub that the repository is private. Nothing to build.
+- Left for next: P0.1.
 
 ### 2026-10-03, Claude
 - Tasks: none from the plan. Wrote the starting documents at Varun's request, from the finished iPhone version.
