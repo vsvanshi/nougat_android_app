@@ -7,9 +7,9 @@ Read `AGENTS.md` first. Keep this file short and true: rewrite "Current state" e
 | | |
 |---|---|
 | Updated | 2026-10-03 by Claude |
-| Phase | 1, design system and shell. P1.1 done. |
-| Next task | P1.2: type, metrics, icons. |
-| Code | `design/Colors.kt` (fixed tokens, light and dark), `design/Accent.kt` (seven accents, saved in `SharedPreferences` "nougat", key "accent"), `design/Theme.kt` (`NougatTheme` provides `LocalColors` and `LocalAccent`), `design/Gallery.kt` (debug catalogue, shown by `MainActivity` until the shell exists; it is in the main source set for now, so P1.4 should move it behind a debug-only entry). Wave N icon and launch screen. Unit tests in `app/src/test/.../DesignSystemTests.kt`. Material 3's own `MaterialTheme` colour scheme is not mapped to the tokens yet: do it when the first Material component is used (P1.3 or P1.4). |
+| Phase | 1, design system and shell. P1.1 and P1.2 done. |
+| Next task | P1.3: components. |
+| Code | `design/Colors.kt` (fixed tokens, light and dark), `design/Accent.kt` (seven accents, saved in `SharedPreferences` "nougat", key "accent"), `design/Theme.kt` (`NougatTheme` provides `LocalColors` and `LocalAccent`), `design/Type.kt` (text styles; button text must be passed in capitals), `design/Metrics.kt` (sizes, radii, motion; the depth shadows are left for P1.3, where the components use them), the 14 icons as `res/drawable/ic_<name>.xml`, `design/Gallery.kt` (debug catalogue, shown by `MainActivity` until the shell exists; it is in the main source set for now, so P1.4 should move it behind a debug-only entry). Wave N icon and launch screen. Unit tests in `app/src/test/.../DesignSystemTests.kt`. Material 3's own `MaterialTheme` colour scheme is not mapped to the tokens yet: do it when the first Material component is used (P1.3 or P1.4). |
 | Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`, private. Commit or push only when Varun says. |
 | Tools on the Mac | JDK 17 (Zulu and JetBrains), ffmpeg, Homebrew. Android command-line tools from Homebrew (`sdkmanager` 22.0 on the path). SDK at `~/Library/Android/sdk` with `platforms;android-37.0`, `build-tools;37.0.0`, `platform-tools` 37.0.1 (about 380 MB); SDK licences accepted with Varun's agreement. `adb` on the path is Homebrew's, same version as the SDK one. No emulator (A7). |
 | Test phone | Samsung Galaxy A07, Android 16 (API 36), One UI 8.5, arm64, 720 x 1600 at 300 dpi (about 384 dp wide, a narrow screen). USB debugging is on and this Mac is authorised; it shows as `device` in `adb devices`. |
@@ -56,6 +56,12 @@ Newest first. Copy this template for each session:
 - Verified: built? tests run? seen on a device? Say "not verified" where true
 - Left for next: anything half-done, broken, or worth knowing
 ```
+
+### 2026-10-03, Claude (sixth session)
+- Tasks: committed P1.1 at Varun's request (`Add colours and accents`). P1.2, finished.
+- Changed: `design/Type.kt`, `design/Metrics.kt`, 14 icons converted from the iPhone SVGs into `res/drawable/ic_*.xml`, `design/Gallery.kt` (type and icon sections, tokens used in place of raw sizes). `DESIGN.md`: where the extra bar icons come from.
+- Verified: built and installed; on the phone the gallery shows all eight text styles and all 14 icons. The phone's `sans-serif` is Roboto (`/system/etc/fonts.xml`). Largest font size not checked yet (that is P7.3).
+- Left for next: P1.3.
 
 ### 2026-10-03, Claude (fifth session)
 - Tasks: committed P0 at Varun's request (`Set up the Android project with icon and launch screen`, not pushed). P1.1, finished.

@@ -12,7 +12,7 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 - **Type** (section 3): the same styles and sizes, in sp, so they follow the system font size.
 - **Layout** (section 4): the same sizes, in dp (8 grid, 16 margin, 72 keyline, 72 and 56 rows, 48 touch target, 56 header play button, 64 Now playing play button).
 - **Shape, depth, motion** (section 5): the same radii, the two shadow levels, the 300 / 225 / 195 ms motion with the standard curve, and the fade under reduced motion.
-- **Icons** (section 6, page side): the same 14 Material icons. Copy them from `Nougat/Resources/Assets.xcassets/Icons/*.imageset/*.svg` in the iPhone repo and import them as vector drawables. On Android they are used everywhere, including the bars, so there are no SF Symbols to replace.
+- **Icons** (section 6, page side): the same 14 Material icons. Copy them from `Nougat/Resources/Assets.xcassets/Icons/*.imageset/*.svg` in the iPhone repo and import them as vector drawables. On Android they are used everywhere, including the bars, so there are no SF Symbols to replace. The bars need a few more than the 14 (for example `search`, `arrow_back`, `music_note`, `queue_music`, `expand_more`, `edit`, `close`): take them from the same Material Icons filled set, as vector drawables named `ic_<name>`, when the screen that uses them is built.
 - **Components** (section 7): header, rows, letter tile, play button, filled and text buttons, chips, the slider, snackbar, empty state, toggle icon, and the visualizer with its six looks.
 - **Screens** (section 8): the same screens with the same contents.
 

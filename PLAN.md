@@ -74,7 +74,7 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 - [x] **P1.1 Colours and accents.** Every fixed colour and the six accents from the iPhone `DESIGN.md` section 2, light and dark, plus the seventh "System" accent on Android 12 and later (decision A14); the accent as a composition local, chosen in `SharedPreferences`, teal by default. Reference: `Nougat/DesignSystem/Accent.swift`, asset colour sets, `NougatTests/DesignSystemTests.swift` (port the contrast checks).
   Done when: the ported tests pass and a debug gallery shows every swatch in light and dark.
-- [ ] **P1.2 Type, metrics, icons.** Text styles in sp, sizes in dp, the 14 icons as vector drawables. Reference: `Typography.swift`, `Metrics.swift`.
+- [x] **P1.2 Type, metrics, icons.** Text styles in sp, sizes in dp, the 14 icons as vector drawables. Reference: `Typography.swift`, `Metrics.swift`.
   Done when: the gallery shows every style and icon.
 - [ ] **P1.3 Components.** Header page (the header is the first list item, the header colour fills behind the status bar, the bar title fades in once the header has left the screen; see iPhone decisions D24, D28, D54), rows with `more_vert` and long-press menu, play button, filled and text buttons, chip, slider (horizontal and vertical, adjustable with TalkBack), snackbar with an action, empty state, toggle icon. Reference: `Page.swift`, `Components/*.swift`, `design/preview.html`.
   Done when: the gallery matches the iPhone preview in light and dark.
