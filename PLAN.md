@@ -102,13 +102,13 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 - [x] **P2.1 Audio access and reading.** Ask for `READ_MEDIA_AUDIO` (Android 13 and later) or `READ_EXTERNAL_STORAGE` (older) with an explanation first, and cope with a refusal. Read `MediaStore` into the same `Track` model: path relative to the storage root, title, artist, album, duration, size, date. Formats as on iPhone, except that Android plays OGG and Opus too; WMA shows greyed out. Reference: `Library/Track.swift`, `Library/LibraryScanner.swift`.
   Done when: music pushed to `/sdcard/Music` appears with its tags.
-- [ ] **P2.2 Folders, sorting, search.** Port the folder tree from paths, sorting, "everything under a folder" and search, with their tests. Keep a title-sorted list made once per change (iPhone D60). Reference: `Track.swift` (`listing`, `search`, `under`), `LibraryTests.swift`.
+- [x] **P2.2 Folders, sorting, search.** Port the folder tree from paths, sorting, "everything under a folder" and search, with their tests. Keep a title-sorted list made once per change (iPhone D60). Reference: `Track.swift` (`listing`, `search`, `under`), `LibraryTests.swift`.
   Done when: the ported tests pass.
-- [ ] **P2.3 Artwork.** Embedded art, else `cover` or `folder` .jpg/.png beside the song; thumbnails cached in memory and in the cache folder; letter tile when none. Reference: `ArtworkStore.swift`.
+- [x] **P2.3 Artwork.** Embedded art, else `cover` or `folder` .jpg/.png beside the song (on Android 10 and later only `AlbumArt*.jpg`, decision A18); thumbnails cached in memory and in the cache folder; letter tile when none. Reference: `ArtworkStore.swift`.
   Done when: thumbnails show and scrolling stays smooth.
-- [ ] **P2.4 Keeping up to date and removing.** Re-read when the app returns and when `MediaStore` reports changes. Removing means hiding (decision A10): a hidden folder or song stops showing and no file is ever deleted; the hidden list is saved and can be undone from Settings.
+- [x] **P2.4 Keeping up to date and removing.** Re-read when the app returns and when `MediaStore` reports changes. Removing means hiding (decision A10): a hidden folder or song stops showing and no file is ever deleted; the hidden list is saved and can be undone from Settings.
   Done when: songs added or deleted outside the app appear or vanish without a restart, and hiding and unhiding a folder works and survives a restart.
-- [ ] **P2.5 Screens.** Folders, Songs (sort menu), Search, with pull to refresh. Reference: `FolderScreen.swift`, `SongsScreen.swift`.
+- [x] **P2.5 Screens.** Folders, Songs (sort menu), Search, with pull to refresh. Reference: `FolderScreen.swift`, `SongsScreen.swift`.
   Done when: all three match the iPhone screens.
 
 ### Phase 3: playback

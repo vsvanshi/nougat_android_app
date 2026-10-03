@@ -4,14 +4,21 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The permission that lets Nougat see audio files: READ_MEDIA_AUDIO from Android 13, storage before. */
@@ -20,9 +27,19 @@ val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_
 /**
  * The music library: every song in the system's media library (decision A9), read with MediaStore.
  * Nothing is copied. Compose screens read `tracks` and `hasAccess` and recompose when they change.
+ * Hidden folders and songs are left out of `tracks`.
  */
 class MediaLibrary(private val context: Context) {
-    /** Sorted by path. */
+    private val prefs = context.getSharedPreferences("nougat", Context.MODE_PRIVATE)
+
+    /** Every song MediaStore has, hidden ones included, sorted by path. */
+    private var all by mutableStateOf<List<Track>>(emptyList())
+
+    /** Folders and songs the user hid (decision A10). Nothing is deleted; Settings can show them again. */
+    var hidden by mutableStateOf(prefs.getStringSet(HIDDEN, emptySet())!!.toSet())
+        private set
+
+    /** The songs to show, sorted by path. */
     var tracks by mutableStateOf<List<Track>>(emptyList())
         private set
 
@@ -33,28 +50,100 @@ class MediaLibrary(private val context: Context) {
     var hasAccess by mutableStateOf(checkAccess())
         private set
 
+    var isReading by mutableStateOf(false)
+        private set
+
+    /** Sort order of folder screens and of Songs, remembered. */
+    var folderSort by mutableStateOf(sortPref(FOLDER_SORT))
+        private set
+    var songSort by mutableStateOf(sortPref(SONG_SORT))
+        private set
+
+    fun sortFolders(sort: LibrarySort) { folderSort = sort; prefs.edit().putString(FOLDER_SORT, sort.name).apply() }
+    fun sortSongs(sort: LibrarySort) { songSort = sort; prefs.edit().putString(SONG_SORT, sort.name).apply() }
+
+    private fun sortPref(key: String) = LibrarySort.entries.firstOrNull { it.name == prefs.getString(key, null) } ?: LibrarySort.Name
+
+    /** Whether a hidden path is a song (rather than a folder), for the Hidden screen. */
+    fun isSong(path: String) = all.any { it.path == path }
+
     private fun checkAccess() = context.checkSelfPermission(audioPermission) == PackageManager.PERMISSION_GRANTED
+
+    private val requests = Channel<Unit>(Channel.CONFLATED)
+
+    /**
+     * Keeps the library in step with MediaStore while `scope` lives: reads now, and again whenever
+     * MediaStore reports a change (songs copied over USB, deleted by another app) or `requestRefresh`
+     * is called. A request that arrives during a read gets one more read afterwards, never a lost one.
+     */
+    fun follow(scope: CoroutineScope) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) { requestRefresh() }
+        }
+        context.contentResolver.registerContentObserver(collection, true, observer)
+        scope.launch {
+            try {
+                requestRefresh()
+                for (request in requests) {
+                    delay(300) // MediaStore sends a burst of changes for one copy
+                    refresh()
+                }
+            } finally {
+                context.contentResolver.unregisterContentObserver(observer)
+            }
+        }
+    }
+
+    fun requestRefresh() { requests.trySend(Unit) }
 
     /** Re-checks the permission and, with it, reads the media library again. */
     suspend fun refresh() {
         hasAccess = checkAccess()
         if (!hasAccess) {
-            tracks = emptyList()
-            tracksByTitle = emptyList()
+            all = emptyList()
+            publish()
             return
         }
+        isReading = true
         val started = System.currentTimeMillis()
         val read = withContext(Dispatchers.IO) { read() }
         Log.i("Nougat", "Read ${read.size} songs in ${System.currentTimeMillis() - started} ms")
-        if (read != tracks) {
-            tracks = read
-            tracksByTitle = read.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+        isReading = false
+        if (read != all) {
+            all = read
+            publish()
         }
     }
 
+    /** Hides a folder (everything under it) or a song. */
+    fun hide(path: String) = saveHidden(hidden + path)
+
+    fun unhide(path: String) = saveHidden(hidden - path)
+
+    private fun saveHidden(paths: Set<String>) {
+        hidden = paths
+        prefs.edit().putStringSet(HIDDEN, paths).apply()
+        publish()
+    }
+
+    private fun publish() {
+        val visible = all.filterNot { isHidden(it.path, hidden) }
+        if (visible != tracks) {
+            tracks = visible
+            tracksByTitle = visible.sortedWith(compareBy(NameOrder) { it.title })
+        }
+    }
+
+    private val collection = if (Build.VERSION.SDK_INT >= 29) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+
+    private companion object {
+        const val HIDDEN = "hidden"
+        const val FOLDER_SORT = "librarySort"
+        const val SONG_SORT = "songsSort"
+    }
+
     private fun read(): List<Track> {
-        val collection = if (Build.VERSION.SDK_INT >= 29) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val columns = buildList {
             add(MediaStore.Audio.Media._ID); add(MediaStore.Audio.Media.TITLE); add(MediaStore.Audio.Media.ARTIST)
             add(MediaStore.Audio.Media.ALBUM); add(MediaStore.Audio.Media.DURATION); add(MediaStore.Audio.Media.SIZE)
@@ -92,6 +181,17 @@ class MediaLibrary(private val context: Context) {
         }
         // One entry per path: a file seen on two volumes' views must not show twice.
         return tracks.distinctBy { it.path }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.path })
+    }
+}
+
+/** Whether `path` is one of `hidden` or lies inside a hidden folder. */
+fun isHidden(path: String, hidden: Set<String>): Boolean {
+    var p = path
+    while (true) {
+        if (p in hidden) return true
+        val slash = p.lastIndexOf('/')
+        if (slash < 0) return false
+        p = p.substring(0, slash)
     }
 }
 

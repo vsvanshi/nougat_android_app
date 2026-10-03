@@ -16,11 +16,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nougat.design.EmptyState
+import app.nougat.library.ArtworkStore
 import app.nougat.library.MediaLibrary
 import app.nougat.library.audioPermission
 import kotlinx.coroutines.launch
 
 val LocalLibrary = staticCompositionLocalOf<MediaLibrary> { error("No library") }
+val LocalArtwork = staticCompositionLocalOf<ArtworkStore> { error("No artwork store") }
 
 /**
  * Shown where the music would be while Nougat may not see it. It explains first and asks only when

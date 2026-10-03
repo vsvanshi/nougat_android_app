@@ -28,3 +28,16 @@ class TrackTests {
         assertEquals("1:02:03", playbackTime(3_723_000))
     }
 }
+
+class HiddenTests {
+    @Test
+    fun hidingAFolderHidesEverythingInsideIt() {
+        val hidden = setOf("Music/Gym", "Music/Road Trip/Kite.mp3")
+        assertEquals(true, isHidden("Music/Gym/Push.mp3", hidden))
+        assertEquals(true, isHidden("Music/Gym/Warm up/Stretch.mp3", hidden))
+        assertEquals(true, isHidden("Music/Road Trip/Kite.mp3", hidden))
+        assertEquals(false, isHidden("Music/Road Trip/Encore.mp3", hidden))
+        // A folder whose name merely starts the same is a different folder.
+        assertEquals(false, isHidden("Music/Gymkhana/Run.mp3", hidden))
+    }
+}

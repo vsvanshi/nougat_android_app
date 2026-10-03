@@ -66,8 +66,10 @@ import app.nougat.design.LocalOverHeader
 import app.nougat.design.Motion
 import app.nougat.design.NoticeHost
 import app.nougat.design.Type
+import app.nougat.library.ArtworkStore
 import app.nougat.library.MediaLibrary
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /** A place in a tab's back stack. */
@@ -77,6 +79,7 @@ sealed interface Screen {
     data object Playlists : Screen
     data object Search : Screen
     data object Gallery : Screen
+    data object Hidden : Screen
 }
 
 enum class Tab(val label: String, @DrawableRes val icon: Int, val root: Screen) {
@@ -97,11 +100,13 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
     val library = remember { MediaLibrary(context.applicationContext) }
-    // Read the library on start and whenever the app comes back, which also picks up a permission
-    // granted in Settings. ponytail: a full re-read each time; P2.4 adds MediaStore change updates.
+    val artwork = remember { ArtworkStore(context) }
+    // Follow MediaStore while the app is in front, and read again on every return, which also
+    // picks up a permission granted in Settings.
     LifecycleResumeEffect(library) {
-        val job = MainScope().launch { library.refresh() }
-        onPauseOrDispose { job.cancel() }
+        val scope = MainScope()
+        library.follow(scope)
+        onPauseOrDispose { scope.cancel() }
     }
     val notices = remember { SnackbarHostState() }
     val overHeader = remember { mutableStateOf(true) }
@@ -121,7 +126,7 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
         }
     }
 
-    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library) {
+    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library, LocalArtwork provides artwork) {
         Box(Modifier.fillMaxSize().background(colors.paper)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
@@ -142,7 +147,8 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
                                         entry<Screen.Folder> { FolderScreen(it.path, push, if (it.path.isEmpty()) null else pop) }
                                         entry<Screen.Songs> { SongsScreen(push) }
                                         entry<Screen.Playlists> { PlaylistsScreen(push) }
-                                        entry<Screen.Search> { SearchScreen(pop) }
+                                        entry<Screen.Search> { SearchScreen(push, pop) }
+                                        entry<Screen.Hidden> { HiddenScreen(pop) }
                                         entry<Screen.Gallery> { Gallery(accent, onAccent, pop) }
                                     },
                                 )
@@ -261,6 +267,7 @@ private fun Screen.encode() = when (this) {
     Screen.Playlists -> "playlists"
     Screen.Search -> "search"
     Screen.Gallery -> "gallery"
+    Screen.Hidden -> "hidden"
 }
 
 private fun decode(s: String) = when (s) {
@@ -268,6 +275,7 @@ private fun decode(s: String) = when (s) {
     "playlists" -> Screen.Playlists
     "search" -> Screen.Search
     "gallery" -> Screen.Gallery
+    "hidden" -> Screen.Hidden
     else -> Screen.Folder(s.removePrefix("folder:"))
 }
 

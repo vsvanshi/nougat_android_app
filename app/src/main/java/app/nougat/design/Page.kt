@@ -24,6 +24,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -32,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -43,6 +47,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nougat.R
+import kotlinx.coroutines.launch
 
 /** The round button on a page header's bottom edge. `label` is what TalkBack reads, such as "Play folder". */
 class HeaderAction(val label: String, @DrawableRes val icon: Int = R.drawable.ic_play_arrow, val onClick: () -> Unit)
@@ -67,6 +72,8 @@ fun Page(
     barActions: @Composable RowScope.() -> Unit = {},
     bottomPadding: PaddingValues = PaddingValues(),
     titleModifier: Modifier = Modifier,
+    /** Pull to refresh, when given. */
+    onRefresh: (suspend () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val colors = LocalColors.current
@@ -95,26 +102,41 @@ fun Page(
     }
 
     Box(modifier.fillMaxSize().background(colors.paper)) {
-        LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = bottomPadding) {
-            item(key = "header") {
-                Box {
-                    Column {
-                        PageHeader(title, subtitle, Modifier.onSizeChanged { headerHeight = it.height }, titleModifier)
-                        Box(Modifier.fillMaxWidth().height(strip)) {
-                            if (firstSubheader != null) Subheader(firstSubheader)
+        val scope = rememberCoroutineScope()
+        var refreshing by remember { mutableStateOf(false) }
+        val pull = rememberPullToRefreshState()
+        val rows: @Composable () -> Unit = {
+            LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = bottomPadding) {
+                item(key = "header") {
+                    Box {
+                        Column {
+                            PageHeader(title, subtitle, Modifier.onSizeChanged { headerHeight = it.height }, titleModifier)
+                            Box(Modifier.fillMaxWidth().height(strip)) {
+                                if (firstSubheader != null) Subheader(firstSubheader)
+                            }
+                        }
+                        if (action != null) {
+                            val y = with(density) { headerHeight.toDp() } - Metrics.headerPlayButton / 2
+                            PlayButton(
+                                action.label, action.onClick, icon = action.icon,
+                                modifier = Modifier.align(Alignment.TopEnd).offset(y = y).padding(end = Metrics.margin),
+                            )
                         }
                     }
-                    if (action != null) {
-                        val y = with(density) { headerHeight.toDp() } - Metrics.headerPlayButton / 2
-                        PlayButton(
-                            action.label, action.onClick, icon = action.icon,
-                            modifier = Modifier.align(Alignment.TopEnd).offset(y = y).padding(end = Metrics.margin),
-                        )
-                    }
                 }
+                content()
             }
-            content()
         }
+        if (onRefresh == null) rows() else PullToRefreshBox(
+            refreshing, { scope.launch { refreshing = true; onRefresh(); refreshing = false } },
+            Modifier.fillMaxSize(), state = pull,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    pull, refreshing, containerColor = colors.surface, color = LocalAccent.current.text,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(WindowInsets.statusBars.asPaddingValues()).padding(top = BarHeight),
+                )
+            },
+        ) { rows() }
         TopAppBar(
             title = { Text(title, style = Type.barTitle, modifier = Modifier.graphicsLayer { alpha = titleAlpha }) },
             navigationIcon = navigationIcon,

@@ -33,7 +33,10 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 | Haptics | `sensoryFeedback` | `HapticFeedbackConstants`: `CLOCK_TICK` for the EQ 0 dB tick, `CONFIRM` for adding to a playlist (Android 11 and later; `VIRTUAL_KEY` before) |
 | Toggle switch | System switch tinted `switchOn` | Material switch tinted `switchOn` |
 | Accent | Six accents | Seven: the six plus "System", the wallpaper colour from Material You (the primary of `dynamicLightColorScheme` / `dynamicDarkColorScheme`) on Android 12 and later, not offered on older versions (decision A14). Taken from the system tonal palette (`system_accent1_*`) by tone, not from the Material colour roles, because the role `primary` (tone 40) is too dark for the play button on the header. Light: accent tone 60, accentText and accentFill tone 40, onAccent tone 100, switchOn tone 50. Dark: accent, text and fill tone 80, onAccent tone 20, switchOn tone 60. accentOnInverse follows the same rule as the six. These tones meet every contrast rule at any hue; the unit tests check it |
-| Removing | "Remove" deletes the app's copy | "Hide": Nougat stops showing the folder or song; no file is deleted. Settings lists hidden items to show again (decision A10) |
+| Removing | "Remove" deletes the app's copy | "Hide" in a folder's or song's menu: Nougat stops showing it, with Undo in the snackbar; no file is deleted. The Hidden screen (Folders menu now, Settings from P7.1) shows them again with a tap (decision A10) |
+| Top of Folders | The Documents folder | The deepest folder that holds every song (usually "Music"), titled "Music" (decision A17) |
+| Cover art beside a song | `cover` or `folder` .jpg/.png | Embedded art first. Beside the song: `cover`/`folder` .jpg/.png on Android 8 and 9; from Android 10 only what the system's media library supplies, which is `AlbumArt*.jpg` (decision A18) |
+| Pull to refresh | System refresh control | Material pull-to-refresh, the indicator just below the top bar, `accentText` on `surface` |
 
 ## 4. Native contract on Android
 
