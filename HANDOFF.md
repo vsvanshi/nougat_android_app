@@ -7,9 +7,9 @@ Read `AGENTS.md` first. Keep this file short and true: rewrite "Current state" e
 | | |
 |---|---|
 | Updated | 2026-10-03 by Claude |
-| Phase | 1, design system and shell. P1.1 and P1.2 done. |
-| Next task | P1.3: components. |
-| Code | `design/Colors.kt` (fixed tokens, light and dark), `design/Accent.kt` (seven accents, saved in `SharedPreferences` "nougat", key "accent"), `design/Theme.kt` (`NougatTheme` provides `LocalColors` and `LocalAccent`), `design/Type.kt` (text styles; button text must be passed in capitals), `design/Metrics.kt` (sizes, radii, motion; the depth shadows are left for P1.3, where the components use them), the 14 icons as `res/drawable/ic_<name>.xml`, `design/Gallery.kt` (debug catalogue, shown by `MainActivity` until the shell exists; it is in the main source set for now, so P1.4 should move it behind a debug-only entry). Wave N icon and launch screen. Unit tests in `app/src/test/.../DesignSystemTests.kt`. Material 3's own `MaterialTheme` colour scheme is not mapped to the tokens yet: do it when the first Material component is used (P1.3 or P1.4). |
+| Phase | 1, design system and shell. P1.1 to P1.3 done. |
+| Next task | P1.4: the app shell. |
+| Code | `design/Colors.kt` (fixed tokens, light and dark), `design/Accent.kt` (seven accents, saved in `SharedPreferences` "nougat", key "accent"), `design/Theme.kt` (`NougatTheme` provides `LocalColors` and `LocalAccent`), `design/Type.kt` (text styles; button text must be passed in capitals), `design/Metrics.kt` (sizes, radii, motion, `Modifier.depth`), `design/Page.kt` (header page and top bar), `design/Buttons.kt` (filled and text buttons, play button, chip, toggle icon, switch, `Modifier.pressable` for the 12% pressed overlay without ripple), `design/Rows.kt` (`ListRow` with `RowAction`s for the `more_vert` menu, the long-press menu and TalkBack actions; letter tile, folder avatar, subheader), `design/Slider.kt`, `design/Messages.kt` (snackbar, `NoticeHost`, empty state), the 14 icons as `res/drawable/ic_<name>.xml`, `design/Gallery.kt` (debug catalogue, shown by `MainActivity` until the shell exists; it is in the main source set for now, so P1.4 should move it behind a debug-only entry). Wave N icon and launch screen. Unit tests in `app/src/test/.../DesignSystemTests.kt`. `NougatTheme` also maps Material 3's colour scheme to the tokens, so menus, bars and switches match. |
 | Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`, private. Commit or push only when Varun says. |
 | Tools on the Mac | JDK 17 (Zulu and JetBrains), ffmpeg, Homebrew. Android command-line tools from Homebrew (`sdkmanager` 22.0 on the path). SDK at `~/Library/Android/sdk` with `platforms;android-37.0`, `build-tools;37.0.0`, `platform-tools` 37.0.1 (about 380 MB); SDK licences accepted with Varun's agreement. `adb` on the path is Homebrew's, same version as the SDK one. No emulator (A7). |
 | Test phone | Samsung Galaxy A07, Android 16 (API 36), One UI 8.5, arm64, 720 x 1600 at 300 dpi (about 384 dp wide, a narrow screen). USB debugging is on and this Mac is authorised; it shows as `device` in `adb devices`. |
@@ -56,6 +56,12 @@ Newest first. Copy this template for each session:
 - Verified: built? tests run? seen on a device? Say "not verified" where true
 - Left for next: anything half-done, broken, or worth knowing
 ```
+
+### 2026-10-03, Claude (seventh session)
+- Tasks: committed P1.2 at Varun's request (`Add type, sizes and icons`). P1.3 built, not ticked yet (dark mode not seen).
+- Changed: new `design/Page.kt`, `Buttons.kt`, `Rows.kt`, `Slider.kt`, `Messages.kt`; `Metrics.kt` (depth shadows with Compose `dropShadow`), `Theme.kt` (Material colour scheme), `Gallery.kt` (now itself a header page with a components section and a working snackbar). Slider tests ported. `DESIGN.md`: the Android top bar and snackbar rows.
+- Verified: 5 unit tests pass. On the phone, light mode: compared with the iPhone `design/preview.html` (rendered with headless Chrome): header, play button on the header edge, filled and text buttons, chips, switch, toggle icons, both sliders, song and folder rows, snackbar and empty state all match. Scrolling: the header colour stays behind the status bar, and once the dark block reaches the bar it turns paper with the title and dark status-bar icons. Long press on a row opens its menu at the row; Back closes it. Not checked by the agent: dark mode, TalkBack and the largest font (system settings it did not change; TalkBack and font size are P7.3).
+- Left for next: Varun's look in dark mode, then tick P1.3 and start P1.4. Varun then checked dark mode, said it is fine, and asked for a commit (P1.3 ticked).
 
 ### 2026-10-03, Claude (sixth session)
 - Tasks: committed P1.1 at Varun's request (`Add colours and accents`). P1.2, finished.

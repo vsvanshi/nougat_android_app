@@ -21,9 +21,10 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 | Area | iPhone | Android |
 |---|---|---|
 | Font | Roboto bundled | Roboto is the system font: nothing to bundle, no font licence to show |
-| Top bar | System glass bar over the header | A transparent Material top app bar over the header. Title fades in when the header scrolls away; it becomes a solid `paper` bar with `ink` text. Edge to edge, `header` colour behind the status bar |
+| Top bar | System glass bar over the header | A Material top app bar (64 dp) over the header, filled with the `header` colour so the large title slides under it and never shows behind the clock (the reason for iPhone D54). The header's large title starts 8 dp below the bar. When the dark block's bottom edge reaches the bottom of the bar, the bar turns `paper` with `ink` icons, the Bar title fades in (300 ms) and the status-bar icons follow the theme; before that they are light. One switch is enough on Android because the bar is opaque. Edge to edge, `header` colour behind the status bar. Android's stretch overscroll leaves no gap above the header, so there is no backdrop as on iPhone (D28) |
 | Tabs | System tab bar with a search tab | Material bottom navigation bar: Folders, Songs, Playlists. Search is an icon in the top app bar of each tab (decision A11) |
 | Mini player | System bottom-accessory slot | Our own bar above the bottom navigation, `surface` with depth 1, same contents; tap opens Now playing |
+| Snackbar | Our own overlay with a 4 s timer | Material's `SnackbarHost` drawn in Nougat's look (`NoticeHost`): it gives the 4 s timeout, a longer one when TalkBack needs time to reach the action, and the announcement |
 | Now playing | Full-screen cover with zoom transition | Full-screen screen; system back and predictive back close it, and so does a swipe down |
 | Menus, dialogs, sheets | System iOS menus and alerts | Material dropdown menus, alert dialogs and modal bottom sheets |
 | Long press | System context menu | A dropdown menu at the row with the same actions as `more_vert` |

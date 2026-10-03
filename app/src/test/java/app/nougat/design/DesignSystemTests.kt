@@ -95,3 +95,22 @@ class DesignSystemTests {
         expect(contrast(s.text, inverse.second), 4.5, "snackbar action, dark")
     }
 }
+
+class SliderTests {
+    @Test
+    fun sliderMapsTouchesToValues() {
+        // Seek bar: 0..1 over 200 dp
+        assertEquals(0.25f, sliderValue(50f, 200f, 0f..1f))
+        // Equalizer band: -15..15, the middle of the track is 0 dB
+        assertEquals(0f, sliderValue(120f, 240f, -15f..15f))
+        // Touches beyond either end clamp
+        assertEquals(-15f, sliderValue(-30f, 240f, -15f..15f))
+        assertEquals(15f, sliderValue(999f, 240f, -15f..15f))
+        // A track with no length yet must not divide by zero
+        assertEquals(0f, sliderValue(10f, 0f, 0f..1f))
+
+        assertEquals(0.7f, sliderFraction(6f, -15f..15f), 1e-6f)
+        assertEquals(1f, sliderFraction(40f, -15f..15f))
+        assertEquals(0f, sliderFraction(1f, 5f..5f))
+    }
+}

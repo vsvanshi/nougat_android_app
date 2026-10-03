@@ -3,81 +3,151 @@ package app.nougat.design
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.ui.res.painterResource
-import app.nougat.R
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.nougat.R
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * Debug catalogue of the design system, the Android counterpart of the iPhone Gallery.swift.
- * Every swatch shows its light and dark value side by side, so one screen covers both.
+ * It is itself a header page. Every swatch shows its light and dark value side by side.
  */
 @Composable
 fun Gallery(accent: Accent, onAccent: (Accent) -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
     val spec = accent.spec(context)
-    LazyColumn(
-        Modifier.fillMaxSize().background(colors.paper),
-        contentPadding = WindowInsets.navigationBars.asPaddingValues(),
-    ) {
-        item {
-            Text(
-                "Design gallery", color = colors.onHeader, style = Type.title,
-                modifier = Modifier.fillMaxWidth().background(colors.header).statusBarsPadding().padding(16.dp),
-            )
-        }
-        item { Subheader("Accent") }
-        item { AccentPicker(accent, onAccent, context) }
-        item { Subheader("Type") }
-        items(styles) { (name, style) ->
-            Text(
-                name, style = style, color = if (style == Type.button) LocalAccent.current.text else colors.ink,
-                modifier = Modifier.padding(horizontal = Metrics.margin, vertical = 4.dp),
-            )
-        }
-        item { Subheader("Icons") }
-        item {
-            FlowRow(Modifier.padding(horizontal = Metrics.margin), horizontalArrangement = Arrangement.spacedBy(Metrics.margin)) {
-                for (icon in icons) {
-                    Icon(painterResource(icon), contentDescription = null, tint = colors.ink, modifier = Modifier.padding(vertical = 8.dp))
+    val notices = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    fun notify(message: String, action: String? = null) = scope.launch { notices.showSnackbar(message, action) }
+
+    Box(Modifier.fillMaxSize()) {
+        Page(
+            title = "Design gallery",
+            subtitle = "Every token and component",
+            action = HeaderAction("Show a snackbar") { notify("Added to Sunday Slow", "Undo") },
+            firstSubheader = "Accent",
+        ) {
+            item { AccentPicker(accent, onAccent, context) }
+            item { Subheader("Components") }
+            item { Components(::notify) }
+            item { Subheader("Type") }
+            items(styles) { (name, style) ->
+                Text(
+                    name, style = style, color = if (style == Type.button) LocalAccent.current.text else colors.ink,
+                    modifier = Modifier.padding(horizontal = Metrics.margin, vertical = 4.dp),
+                )
+            }
+            item { Subheader("Icons") }
+            item {
+                FlowRow(Modifier.padding(horizontal = Metrics.margin), horizontalArrangement = Arrangement.spacedBy(Metrics.margin)) {
+                    for (icon in icons) {
+                        Icon(painterResource(icon), contentDescription = null, tint = colors.ink, modifier = Modifier.padding(vertical = 8.dp))
+                    }
                 }
             }
+            item { Subheader("Accent colours: ${accent.name}") }
+            items(spec.colors(false).named.zip(spec.colors(true).named)) { (light, dark) ->
+                SwatchRow(light.first, light.second, dark.second)
+            }
+            item { Subheader("Fixed colours") }
+            items(LightColors.named.zip(DarkColors.named)) { (light, dark) ->
+                SwatchRow(light.first, light.second, dark.second)
+            }
         }
-        item { Subheader("Accent colours: ${accent.name}") }
-        items(spec.colors(false).named.zip(spec.colors(true).named)) { (light, dark) ->
-            SwatchRow(light.first, light.second, dark.second)
+        NoticeHost(notices, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars))
+    }
+}
+
+@Composable
+private fun Components(notify: (String, String?) -> Unit) {
+    var chip by remember { mutableStateOf("Bass boost") }
+    var eq by remember { mutableStateOf(true) }
+    var shuffle by remember { mutableStateOf(true) }
+    var repeat by remember { mutableStateOf(false) }
+    var seek by remember { mutableFloatStateOf(0.45f) }
+    var band by remember { mutableFloatStateOf(6f) }
+    val colors = LocalColors.current
+
+    Column {
+        Row(Modifier.padding(horizontal = Metrics.margin), verticalAlignment = Alignment.CenterVertically) {
+            FilledButton("Play folder", { notify("Play folder", null) })
+            TextButton("Add songs", { notify("Add songs", null) })
+            Box(Modifier.weight(1f))
+            PlayButton("Play", { notify("Play", null) })
         }
-        item { Subheader("Fixed colours") }
-        items(LightColors.named.zip(DarkColors.named)) { (light, dark) ->
-            SwatchRow(light.first, light.second, dark.second)
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Metrics.margin),
+            horizontalArrangement = Arrangement.spacedBy(Metrics.grid),
+        ) {
+            for (name in listOf("Flat", "Bass boost", "Rock", "Vocal", "Custom")) Chip(name, chip == name, { chip = name })
         }
+        Row(Modifier.padding(horizontal = Metrics.margin).height(Metrics.rowOneLine), verticalAlignment = Alignment.CenterVertically) {
+            Text("Equalizer", style = Type.rowTitle, color = colors.ink, modifier = Modifier.weight(1f))
+            Toggle(eq, { eq = it })
+        }
+        Row(Modifier.padding(horizontal = Metrics.margin), horizontalArrangement = Arrangement.spacedBy(Metrics.margin)) {
+            ToggleIcon(R.drawable.ic_shuffle, "Shuffle", shuffle, { shuffle = it })
+            ToggleIcon(if (repeat) R.drawable.ic_repeat_one else R.drawable.ic_repeat, "Repeat", repeat, { repeat = it })
+        }
+        Row(Modifier.padding(horizontal = Metrics.margin), verticalAlignment = Alignment.CenterVertically) {
+            Slider(seek, { seek = it }, "Position", "${(seek * 100).roundToInt()} percent", Modifier.weight(1f))
+            Box(Modifier.width(24.dp))
+            Slider(band, { band = it }, "60 hertz", "${band.roundToInt()} decibels", Modifier.height(120.dp), range = -15f..15f, vertical = true, origin = 0f)
+        }
+        ListRow(
+            "Kite Season", subtitle = "Anouk Verma", detail = "2:58",
+            actions = listOf(RowAction("Add to playlist") { notify("Add to playlist", null) }, RowAction("Hide") { notify("Hide", null) }),
+            onTap = { notify("Kite Season", null) },
+            leading = { LetterTile("Kite Season") },
+        )
+        ListRow(
+            "Road Trip 2016", subtitle = "64 songs",
+            actions = listOf(RowAction("Play") { notify("Play", null) }),
+            onTap = { notify("Road Trip 2016", null) },
+            leading = { FolderAvatar() },
+        )
+        Snackbar("Added to Sunday Slow", "Undo", Modifier.padding(Metrics.margin))
+        EmptyState("No music here yet", "Copy music into the Music folder to start.", "Refresh", { notify("Refresh", null) }, Modifier.fillMaxWidth())
     }
 }
 
@@ -94,22 +164,16 @@ private val icons = listOf(
     R.drawable.ic_check, R.drawable.ic_library_music,
 )
 
-@Composable
-private fun Subheader(title: String) {
-    Text(
-        title, color = LocalAccent.current.text, style = Type.bodyStrong,
-        modifier = Modifier.padding(start = Metrics.margin, end = Metrics.margin, top = 24.dp, bottom = 8.dp),
-    )
-}
-
 /** The accents as swatches; the chosen one shows a check. */
 @Composable
 private fun AccentPicker(selected: Accent, onSelect: (Accent) -> Unit, context: Context) {
-    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.padding(horizontal = Metrics.margin), horizontalArrangement = Arrangement.spacedBy(Metrics.grid)) {
         for (option in Accent.available) {
             val c = option.spec(context).colors(dark = false)
             Box(
-                Modifier.size(40.dp).background(c.accent, CircleShape).clickable { onSelect(option) },
+                Modifier.size(40.dp).background(c.accent, CircleShape)
+                    .pressable(CircleShape, { onSelect(option) }, role = Role.RadioButton)
+                    .semantics { contentDescription = option.name; this.selected = option == selected },
                 contentAlignment = Alignment.Center,
             ) {
                 if (option == selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = c.onAccent)
@@ -121,7 +185,7 @@ private fun AccentPicker(selected: Accent, onSelect: (Accent) -> Unit, context: 
 @Composable
 private fun SwatchRow(name: String, light: Color, dark: Color) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().padding(horizontal = Metrics.margin, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(name, color = LocalColors.current.ink, style = Type.body, modifier = Modifier.weight(1f))
