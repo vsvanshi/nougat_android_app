@@ -63,6 +63,8 @@ fun ListRow(
     onTap: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     titleModifier: Modifier = Modifier,
+    /** False where a long press starts a drag instead; `more_vert` still opens the menu. */
+    menuOnLongPress: Boolean = true,
 ) {
     val colors = LocalColors.current
     val accent = LocalAccent.current
@@ -76,7 +78,7 @@ fun ListRow(
             Modifier.fillMaxWidth()
                 .combinedClickable(
                     interaction, indication = null, enabled = (enabled && onTap != null) || actions.isNotEmpty(),
-                    onLongClick = if (actions.isEmpty()) null else ({ menu = true }),
+                    onLongClick = if (actions.isEmpty() || !menuOnLongPress) null else ({ menu = true }),
                     onClick = { if (enabled) onTap?.invoke() },
                 )
                 .background(colors.ink.copy(alpha = if (pressed) 0.12f else 0f))

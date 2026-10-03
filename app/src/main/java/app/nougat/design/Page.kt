@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
@@ -74,10 +75,10 @@ fun Page(
     titleModifier: Modifier = Modifier,
     /** Pull to refresh, when given. */
     onRefresh: (suspend () -> Unit)? = null,
+    list: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     val colors = LocalColors.current
-    val list = rememberLazyListState()
     val density = LocalDensity.current
     var headerHeight by remember { mutableIntStateOf(0) }
     val barBottom = with(density) { (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + BarHeight).roundToPx() }

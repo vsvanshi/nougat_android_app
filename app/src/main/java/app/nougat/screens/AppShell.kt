@@ -19,6 +19,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,6 +32,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,9 +49,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation3.runtime.entryProvider
@@ -57,6 +63,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.navigationevent.DirectNavigationEventInput
 import androidx.navigationevent.NavigationEvent
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import app.nougat.App
 import app.nougat.R
 import app.nougat.design.Accent
 import app.nougat.design.Gallery
@@ -66,7 +73,6 @@ import app.nougat.design.LocalOverHeader
 import app.nougat.design.Motion
 import app.nougat.design.NoticeHost
 import app.nougat.design.Type
-import app.nougat.App
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -79,6 +85,8 @@ sealed interface Screen {
     data object Search : Screen
     data object Gallery : Screen
     data object Hidden : Screen
+    data class Playlist(val id: String) : Screen
+    data class SongPicker(val playlist: String) : Screen
 }
 
 enum class Tab(val label: String, @DrawableRes val icon: Int, val root: Screen) {
@@ -102,6 +110,9 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val library = app.library
     val artwork = app.artwork
     val player = app.player
+    val playlists = app.playlists
+    var adding by remember { mutableStateOf<List<String>?>(null) }
+    var bottomBars by remember { mutableIntStateOf(0) }
     // Follow MediaStore while the app is in front, and read again on every return, which also
     // picks up a permission granted in Settings.
     LifecycleResumeEffect(library) {
@@ -132,7 +143,8 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
         }
     }
 
-    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library, LocalArtwork provides artwork, LocalPlayer provides player) {
+    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library, LocalArtwork provides artwork, LocalPlayer provides player, LocalPlaylists provides playlists, LocalEqualizer provides app.equalizer, LocalAddToPlaylist provides { paths: List<String> -> if (paths.isNotEmpty()) adding = paths }) {
+        AdditionHaptic()
         Box(Modifier.fillMaxSize().background(colors.paper)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
@@ -155,29 +167,32 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
                                         entry<Screen.Playlists> { PlaylistsScreen(push) }
                                         entry<Screen.Search> { SearchScreen(push, pop) }
                                         entry<Screen.Hidden> { HiddenScreen(pop) }
+                                        entry<Screen.Playlist> { PlaylistScreen(it.id, push, pop) }
+                                        entry<Screen.SongPicker> { SongPickerScreen(it.playlist, pop) }
                                         entry<Screen.Gallery> { Gallery(accent, onAccent, pop) }
                                     },
                                 )
                             }
                         }
                     }
-                    NoticeHost(notices, Modifier.align(Alignment.BottomCenter))
                 }
-                MiniPlayer(onOpen = { nowPlaying = true })
-                NavigationBar(containerColor = colors.surface) {
-                    for (t in Tab.entries) {
-                        NavigationBarItem(
-                            selected = t == tab,
-                            // Tapping the tab that is showing goes back to its root.
-                            onClick = { if (t == tab) stack.removeRange(1, stack.size) else tab = t },
-                            icon = { Icon(painterResource(t.icon), contentDescription = null) },
-                            label = { Text(t.label, style = Type.caption) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = LocalAccent.current.text, selectedTextColor = LocalAccent.current.text,
-                                unselectedIconColor = colors.ink2, unselectedTextColor = colors.ink2,
-                                indicatorColor = Color.Transparent,
-                            ),
-                        )
+                Column(Modifier.onSizeChanged { bottomBars = it.height }) {
+                    MiniPlayer(onOpen = { nowPlaying = true })
+                    NavigationBar(containerColor = colors.surface) {
+                        for (t in Tab.entries) {
+                            NavigationBarItem(
+                                selected = t == tab,
+                                // Tapping the tab that is showing goes back to its root.
+                                onClick = { if (t == tab) stack.removeRange(1, stack.size) else tab = t },
+                                icon = { Icon(painterResource(t.icon), contentDescription = null) },
+                                label = { Text(t.label, style = Type.caption) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = LocalAccent.current.text, selectedTextColor = LocalAccent.current.text,
+                                    unselectedIconColor = colors.ink2, unselectedTextColor = colors.ink2,
+                                    indicatorColor = Color.Transparent,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -188,6 +203,10 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
             ) {
                 NowPlayingScreen(nowPlayingOverHeader, onClose = { nowPlaying = false })
             }
+            // Snackbars float above the mini player and bottom navigation, and over Now playing too.
+            val above = with(LocalDensity.current) { if (nowPlaying) 0.dp else bottomBars.toDp() }
+            NoticeHost(notices, Modifier.align(Alignment.BottomCenter).padding(bottom = above).then(if (nowPlaying) Modifier.navigationBarsPadding() else Modifier))
+            adding?.let { AddToPlaylistSheet(it) { adding = null } }
         }
     }
 }
@@ -274,6 +293,8 @@ private fun Screen.encode() = when (this) {
     Screen.Search -> "search"
     Screen.Gallery -> "gallery"
     Screen.Hidden -> "hidden"
+    is Screen.Playlist -> "playlist:$id"
+    is Screen.SongPicker -> "picker:$playlist"
 }
 
 private fun decode(s: String) = when (s) {
@@ -282,7 +303,11 @@ private fun decode(s: String) = when (s) {
     "search" -> Screen.Search
     "gallery" -> Screen.Gallery
     "hidden" -> Screen.Hidden
-    else -> Screen.Folder(s.removePrefix("folder:"))
+    else -> when {
+        s.startsWith("playlist:") -> Screen.Playlist(s.removePrefix("playlist:"))
+        s.startsWith("picker:") -> Screen.SongPicker(s.removePrefix("picker:"))
+        else -> Screen.Folder(s.removePrefix("folder:"))
+    }
 }
 
 /** Keeps every tab's back stack across a configuration change or the process being stopped. */

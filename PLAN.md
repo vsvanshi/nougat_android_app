@@ -124,25 +124,25 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 4: playlists
 
-- [ ] **P4.1 Store.** Port `Playlists` and `Playlist` with their tests: unique names ignoring case, a song at most once, missing songs kept but hidden (D41), an additions counter for the success haptic (D57). Reference: `Playlists/Playlists.swift`, `PlaylistTests.swift`.
+- [x] **P4.1 Store.** Port `Playlists` and `Playlist` with their tests: unique names ignoring case, a song at most once, missing songs kept but hidden (D41), an additions counter for the success haptic (D57). Reference: `Playlists/Playlists.swift`, `PlaylistTests.swift`.
   Done when: the ported tests pass.
-- [ ] **P4.2 Screens.** Playlists list (create, rename, delete), playlist detail (play, shuffle, drag to reorder, swipe to remove, "Add songs" picker), "Add to playlist" from a song, a folder and Now playing, with an Undo snackbar. Compose has no built-in list reordering; write it with a long-press drag, no library. Reference: `PlaylistScreens.swift`.
+- [x] **P4.2 Screens.** Playlists list (create, rename, delete), playlist detail (play, shuffle, drag to reorder, swipe to remove, "Add songs" picker), "Add to playlist" from a song, a folder and Now playing, with an Undo snackbar. Compose has no built-in list reordering; write it with a long-press drag, no library. Reference: `PlaylistScreens.swift`.
   Done when: everything above works on a device and survives a restart.
 
 ### Phase 5: equalizer
 
-- [ ] **P5.1 State.** Port `EqualizerState` and its tests: bands at 60, 230, 910, 3,600 and 14,000 Hz, ±15 dB in 0.5 dB steps, preamp ±12 dB, the presets, saved presets, "Custom", and the headroom rule (D43, D44). Reference: `Equalizer/Equalizer.swift`, `EqualizerTests.swift`.
+- [x] **P5.1 State.** Port `EqualizerState` and its tests: bands at 60, 230, 910, 3,600 and 14,000 Hz, ±15 dB in 0.5 dB steps, preamp ±12 dB, the presets, saved presets, "Custom", and the headroom rule (D43, D44). Reference: `Equalizer/Equalizer.swift`, `EqualizerTests.swift`.
   Done when: the ported tests pass.
-- [ ] **P5.2 Sound.** Apply it to ExoPlayer's audio session: `DynamicsProcessing` on Android 9 and later (exact band frequencies, and an input gain for preamp and headroom), the platform `Equalizer` on 8.x (nearest bands).
+- [x] **P5.2 Sound.** Apply it to ExoPlayer's audio session: `DynamicsProcessing` on Android 9 and later (exact band frequencies, and an input gain for preamp and headroom), the platform `Equalizer` on 8.x (nearest bands).
   Done when: Varun hears each preset and the preamp on his phone.
-- [ ] **P5.3 Screen.** Reference: `EqualizerScreen.swift`, including the 0 dB tick and the large-text layout (D59).
+- [x] **P5.3 Screen.** Reference: `EqualizerScreen.swift`, including the 0 dB tick and the large-text layout (D59).
   Done when: it matches the iPhone screen and works with TalkBack.
 
 ### Phase 6: visualizer
 
-- [ ] **P6.1 Analyser.** Take the decoded audio from ExoPlayer with Media3's `TeeAudioProcessor` (no microphone permission), only while Now playing is visible and the app is in front. Port the analyser: 1,024-sample slices, 24 bands from 50 Hz to 16 kHz, 3 dB per octave tilt, the level curve, the waveform. Reference: `Playback/Spectrum.swift`, `aToneLightsTheBarForItsPitch` in `PlaybackTests.swift`.
+- [x] **P6.1 Analyser.** Take the decoded audio from ExoPlayer with Media3's `TeeAudioProcessor` (no microphone permission), only while Now playing is visible and the app is in front. Port the analyser: 1,024-sample slices, 24 bands from 50 Hz to 16 kHz, 3 dB per octave tilt, the level curve, the waveform. Reference: `Playback/Spectrum.swift`, `aToneLightsTheBarForItsPitch` in `PlaybackTests.swift`.
   Done when: the ported test passes.
-- [ ] **P6.2 Six looks.** Port spectrum, LED meter, oscilloscope, ring, cassette and record to Compose `Canvas`; tap the cover to change look; strip over a cover, full area without one; nothing moves with animations removed. Reference: `Components/Visualizer.swift` (D50, D52).
+- [x] **P6.2 Six looks.** Port spectrum, LED meter, oscilloscope, ring, cassette and record to Compose `Canvas`; tap the cover to change look; strip over a cover, full area without one; nothing moves with animations removed. Reference: `Components/Visualizer.swift` (D50, D52).
   Done when: all six move with the music on a device.
 
 ### Phase 7: finish

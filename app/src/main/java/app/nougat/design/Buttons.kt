@@ -1,7 +1,9 @@
 package app.nougat.design
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
@@ -100,15 +102,17 @@ fun PlayButton(
     }
 }
 
-/** Capsule chip, for equalizer presets. */
+/** Capsule chip, for equalizer presets. `onLongClick` opens a chip's own menu, such as deleting a saved preset. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Chip(title: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun Chip(title: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null) {
     val accent = LocalAccent.current
     val colors = LocalColors.current
     val shape = RoundedCornerShape(50)
     Box(
         modifier.defaultMinSize(minHeight = Metrics.touchTarget)
-            .selectable(selected, onClick = onClick, role = Role.Tab, indication = null, interactionSource = null),
+            .combinedClickable(interactionSource = null, indication = null, role = Role.Tab, onLongClick = onLongClick, onClick = onClick)
+            .semantics { this.selected = selected },
         contentAlignment = Alignment.Center,
     ) {
         Box(

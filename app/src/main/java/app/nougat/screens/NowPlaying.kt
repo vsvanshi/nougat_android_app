@@ -1,5 +1,6 @@
 package app.nougat.screens
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.annotation.DrawableRes
@@ -12,10 +13,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -60,22 +64,25 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.nougat.R
 import app.nougat.design.BarHeight
 import app.nougat.design.BarIcon
 import app.nougat.design.Depth
 import app.nougat.design.LetterTile
 import app.nougat.design.ListRow
+import app.nougat.design.LocalAccent
 import app.nougat.design.LocalColors
 import app.nougat.design.Metrics
 import app.nougat.design.Motion
@@ -85,10 +92,14 @@ import app.nougat.design.ToggleIcon
 import app.nougat.design.Type
 import app.nougat.design.depth
 import app.nougat.design.pressable
+import app.nougat.design.rememberReorderState
+import app.nougat.design.reorderable
 import app.nougat.library.Track
 import app.nougat.library.playbackTime
 import app.nougat.playback.Player
 import app.nougat.playback.RepeatMode
+import app.nougat.visualizer.Visualizer
+import app.nougat.visualizer.VisualizerStyle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -147,7 +158,13 @@ fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
     val drag = remember { Animatable(0f) }
     val closeAt = with(LocalDensity.current) { 160.dp.toPx() }
     var queueShown by remember { mutableStateOf(false) }
-    SideEffect { overHeader.value = !queueShown }
+    var equalizerShown by remember { mutableStateOf(false) }
+    SideEffect { overHeader.value = !queueShown && !equalizerShown }
+    // The music is analysed only while the visualizer can be seen (D50).
+    LifecycleResumeEffect(player) {
+        player.isVisualizing = true
+        onPauseOrDispose { player.isVisualizing = false }
+    }
 
     PredictiveBackHandler { events ->
         try {
@@ -180,7 +197,7 @@ fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
                 ),
                 onClose = onClose, onQueue = { queueShown = true },
             )
-            player.current?.let { Details(it) }
+            player.current?.let { Details(it, onEqualizer = { equalizerShown = true }) }
         }
         AnimatedVisibility(
             queueShown,
@@ -190,27 +207,72 @@ fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
             BackHandler { queueShown = false }
             QueueScreen(onBack = { queueShown = false })
         }
+        AnimatedVisibility(
+            equalizerShown,
+            enter = slideInHorizontally(tween(Motion.standard)) { it },
+            exit = slideOutHorizontally(tween(Motion.standard)) { it },
+        ) {
+            BackHandler { equalizerShown = false }
+            EqualizerScreen(onBack = { equalizerShown = false })
+        }
     }
 }
 
-/** The cover, or the header colour with the title's letter until the visualizer arrives (P6). */
+/**
+ * The cover with the visualizer: a low strip over a cover, or the whole area on the header colour
+ * when there is none (D50). Tapping steps through the looks, which are remembered (D52).
+ */
 @Composable
 private fun Cover(modifier: Modifier, onClose: () -> Unit, onQueue: () -> Unit) {
     val colors = LocalColors.current
+    val accent = LocalAccent.current
     val player = LocalPlayer.current
     val store = LocalArtwork.current
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("nougat", Context.MODE_PRIVATE) }
+    var style by remember { mutableStateOf(VisualizerStyle.entries.firstOrNull { it.name == prefs.getString("visualizerStyle", null) } ?: VisualizerStyle.Spectrum) }
+    var nameShown by remember { mutableStateOf(0) }
     val track = player.current
-    // The last cover stays until the next song's is known.
-    val cover by produceState<ImageBitmap?>(null, track?.path) { value = track?.let { store.fullImage(it)?.asImageBitmap() } }
-    Box(modifier.fillMaxWidth().aspectRatio(1f).background(colors.header)) {
+    // The last cover stays until the next song's is known; `checked` keeps the bars from flashing up before a cover.
+    var checked by remember { mutableStateOf(false) }
+    val cover by produceState<ImageBitmap?>(null, track?.path) {
+        value = track?.let { store.fullImage(it)?.asImageBitmap() }
+        checked = true
+    }
+    LaunchedEffect(nameShown) { if (nameShown > 0) { delay(1500); nameShown = 0 } }
+
+    Box(
+        modifier.fillMaxWidth().aspectRatio(1f).background(colors.header).pointerInput(Unit) {
+            detectTapGestures {
+                style = if (cover == null) style.next else style.nextStrip
+                prefs.edit().putString("visualizerStyle", style.name).apply()
+                nameShown++
+            }
+        },
+    ) {
         val image = cover
-        if (image != null) Image(image, null, Modifier.fillMaxSize().clearAndSetSemantics {}, contentScale = ContentScale.Crop)
-        else Text(
-            track?.title?.take(1)?.uppercase().orEmpty(), style = Type.largeTitle.copy(fontSize = Type.largeTitle.fontSize * 3),
-            color = colors.onHeader2, modifier = Modifier.align(Alignment.Center).clearAndSetSemantics {},
-        )
+        if (image != null) {
+            Image(image, null, Modifier.fillMaxSize().clearAndSetSemantics {}, contentScale = ContentScale.Crop)
+            // Over a cover: a low strip on a scrim.
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(128.dp).background(Brush.verticalGradient(listOf(colors.header.copy(alpha = 0f), colors.header.copy(alpha = 0.85f)))))
+            Visualizer(
+                player.spectrum, player.isPlaying, style, colors.onHeader, colors.onHeader.copy(alpha = 0.6f),
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(56.dp).padding(horizontal = Metrics.margin).padding(bottom = 0.dp).offset(y = (-12).dp),
+            )
+        } else if (checked) {
+            // No cover: the visualizer is the picture. It stays clear of the buttons at the top.
+            Visualizer(
+                player.spectrum, player.isPlaying, style, accent.accent, colors.onHeader,
+                Modifier.fillMaxSize().padding(start = Metrics.margin, end = Metrics.margin, top = 120.dp, bottom = Metrics.margin),
+                stage = true, title = track?.title.orEmpty(), progress = { player.roughProgress },
+            )
+        }
         // A scrim keeps the status bar and the buttons readable over any cover.
         Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(colors.header.copy(alpha = 0.6f), colors.header.copy(alpha = 0f)))))
+        if (nameShown > 0) Text(
+            (if (cover == null) style else style.strip).title, style = Type.bodyStrong, color = colors.onHeader,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 70.dp).background(colors.header.copy(alpha = 0.7f), RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 6.dp),
+        )
         CompositionLocalProvider(LocalContentColor provides colors.onHeader) {
             Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp).fillMaxWidth().height(BarHeight), verticalAlignment = Alignment.CenterVertically) {
                 BarIcon(R.drawable.ic_expand_more, "Close", onClose)
@@ -223,14 +285,22 @@ private fun Cover(modifier: Modifier, onClose: () -> Unit, onQueue: () -> Unit) 
 
 /** Title, seek bar and controls. */
 @Composable
-private fun Details(track: Track) {
+private fun ColumnScope.Details(track: Track, onEqualizer: () -> Unit) {
     val colors = LocalColors.current
     val player = LocalPlayer.current
-    Column(Modifier.padding(horizontal = Metrics.margin)) {
-        Column(Modifier.padding(top = Metrics.margin).semantics(mergeDescendants = true) {}) {
-            Text(track.title, style = Type.title, color = colors.ink, maxLines = 2)
-            val folder = track.path.substringBeforeLast('/', "").substringAfterLast('/')
-            Text(listOfNotNull(track.artist ?: "Unknown artist", folder.ifEmpty { null }).joinToString(", "), style = Type.body, color = colors.ink2, maxLines = 2)
+    val addTo = LocalAddToPlaylist.current
+    val equalizer = LocalEqualizer.current
+    // ponytail: at the largest text sizes this may need to scroll (P7.3, iPhone D59).
+    Column(Modifier.padding(horizontal = Metrics.margin).weight(1f)) {
+        Row(Modifier.padding(top = Metrics.margin), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
+                Text(track.title, style = Type.title, color = colors.ink, maxLines = 2)
+                val folder = track.path.substringBeforeLast('/', "").substringAfterLast('/')
+                Text(listOfNotNull(track.artist ?: "Unknown artist", folder.ifEmpty { null }).joinToString(", "), style = Type.body, color = colors.ink2, maxLines = 2)
+            }
+            CompositionLocalProvider(LocalContentColor provides colors.ink2) {
+                BarIcon(R.drawable.ic_playlist_add, "Add to playlist") { addTo(listOf(track.path)) }
+            }
         }
         SeekBar()
         Row(
@@ -248,6 +318,19 @@ private fun Details(track: Track) {
             ToggleIcon(
                 if (player.repeatMode == RepeatMode.One) R.drawable.ic_repeat_one else R.drawable.ic_repeat,
                 "Repeat ${player.repeatMode.name.lowercase()}", player.repeatMode != RepeatMode.Off, { player.cycleRepeat() },
+            )
+        }
+        Spacer(Modifier.weight(1f).height(Metrics.margin))
+        // The shortcut names the preset in use, or just says "Equalizer" when it is off.
+        Row(
+            Modifier.align(Alignment.CenterHorizontally).padding(bottom = Metrics.grid).navigationBarsPadding()
+                .pressable(RoundedCornerShape(50), onEqualizer).padding(horizontal = Metrics.margin, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_equalizer), null, tint = LocalAccent.current.text, modifier = Modifier.size(20.dp))
+            Text(
+                (if (equalizer.state.isOn) equalizer.state.presetName else "Equalizer").uppercase(), style = Type.button,
+                color = LocalAccent.current.text, modifier = Modifier.padding(start = Metrics.grid),
             )
         }
     }
@@ -301,10 +384,9 @@ private fun QueueScreen(onBack: () -> Unit) {
     val player = LocalPlayer.current
     val library = LocalLibrary.current
     val list = rememberLazyListState()
-    var dragged by remember { mutableStateOf<Int?>(null) }
-    var offset by remember { mutableFloatStateOf(0f) }
     val items = player.items
     val unique = items.toSet().size == items.size
+    val reorder = rememberReorderState(list) { player.items.size }
 
     Column(Modifier.fillMaxSize().background(colors.paper)) {
         CompositionLocalProvider(LocalContentColor provides colors.ink) {
@@ -319,35 +401,14 @@ private fun QueueScreen(onBack: () -> Unit) {
         ) {
             itemsIndexed(items, key = { i, path -> if (unique) path else "$i" }) { position, path ->
                 val track = library.track(path) ?: return@itemsIndexed
-                val lifted = dragged == position
                 val swipe = rememberSwipeToDismissBoxState()
                 LaunchedEffect(swipe.currentValue) {
                     if (swipe.currentValue != SwipeToDismissBoxValue.Settled) player.items.indexOf(path).takeIf { it >= 0 }?.let(player::remove)
                 }
                 SwipeToDismissBox(
                     swipe, backgroundContent = { Box(Modifier.fillMaxSize().background(colors.fill)) },
-                    // The drag lives on the row, inside the list, so the row has the finger before the list can scroll.
-                    modifier = Modifier.pointerInput(path) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { dragged = player.items.indexOf(path); offset = 0f },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                val from = dragged ?: return@detectDragGesturesAfterLongPress
-                                offset += amount.y
-                                val info = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == from } ?: return@detectDragGesturesAfterLongPress
-                                val middle = info.offset + info.size / 2 + offset
-                                val target = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index != from && middle.toInt() in it.offset until it.offset + it.size }
-                                if (target != null) {
-                                    player.move(from, target.index)
-                                    offset += info.offset - target.offset
-                                    dragged = target.index
-                                }
-                            },
-                            onDragEnd = { dragged = null; offset = 0f },
-                            onDragCancel = { dragged = null; offset = 0f },
-                        )
-                    }.zIndex(if (lifted) 1f else 0f).graphicsLayer { if (lifted) translationY = offset }
-                        .then(if (lifted) Modifier.shadow(6.dp) else Modifier).animateItem(placementSpec = if (lifted) null else tween(Motion.standard)),
+                    modifier = Modifier.reorderable(reorder, path, { player.items.indexOf(path) }, player::move)
+                        .animateItem(placementSpec = if (reorder.dragged == position) null else tween(Motion.standard)),
                 ) {
                     // No menu here: a long press starts a drag. TalkBack gets the same edits as actions.
                     Box(

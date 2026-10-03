@@ -46,7 +46,7 @@ val NameOrder: Comparator<String> = run {
 }
 
 /** Lower case with accents removed, for matching that ignores both. */
-private fun folded(s: String) = Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
+fun folded(s: String) = Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 
 private fun parentOf(path: String) = path.substringBeforeLast('/', "")
 

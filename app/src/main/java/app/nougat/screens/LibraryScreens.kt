@@ -19,6 +19,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -80,15 +83,48 @@ private fun rememberHide(): (path: String) -> Unit {
     }
 }
 
-/** A song: thumbnail, title, artist, duration; the one playing in the accent colour. Songs Android cannot play are dimmed. */
+/**
+ * A song: thumbnail, title, artist, duration; the one playing in the accent colour. Songs Android
+ * cannot play are dimmed. In the library lists a swipe offers "Add to playlist" (`swipeToAdd`).
+ */
 @Composable
-fun TrackRow(track: Track, onTap: () -> Unit, actions: List<RowAction> = emptyList()) {
+fun TrackRow(
+    track: Track,
+    onTap: () -> Unit,
+    actions: List<RowAction> = emptyList(),
+    menuOnLongPress: Boolean = true,
+    swipeToAdd: Boolean = false,
+) {
     val playing = LocalPlayer.current.current?.path == track.path
-    ListRow(
-        track.title, subtitle = if (track.isPlayable) track.artist ?: "Unknown artist" else "Unsupported format",
-        detail = if (track.isPlayable) playbackTime(track.durationMs) else null,
-        highlighted = playing, enabled = track.isPlayable, spokenState = if (playing) "Playing" else null,
-        actions = actions, onTap = onTap, leading = { TrackThumbnail(track) },
+    val row = @Composable {
+        ListRow(
+            track.title, subtitle = if (track.isPlayable) track.artist ?: "Unknown artist" else "Unsupported format",
+            detail = if (track.isPlayable) playbackTime(track.durationMs) else null,
+            highlighted = playing, enabled = track.isPlayable, spokenState = if (playing) "Playing" else null,
+            actions = actions, onTap = onTap, leading = { TrackThumbnail(track) }, menuOnLongPress = menuOnLongPress,
+        )
+    }
+    if (!swipeToAdd || !track.isPlayable) return row()
+    val addTo = LocalAddToPlaylist.current
+    val swipe = rememberSwipeToDismissBoxState()
+    LaunchedEffect(swipe.currentValue) {
+        if (swipe.currentValue != SwipeToDismissBoxValue.Settled) {
+            addTo(listOf(track.path))
+            swipe.reset()
+        }
+    }
+    SwipeToDismissBox(swipe, backgroundContent = { SwipeBackground("Add to playlist") }, enableDismissFromStartToEnd = false) {
+        Box(Modifier.background(LocalColors.current.paper)) { row() }
+    }
+}
+
+/** The menu of a song in the library lists. */
+@Composable
+private fun songActions(track: Track, hide: (String) -> Unit): List<RowAction> {
+    val addTo = LocalAddToPlaylist.current
+    return listOfNotNull(
+        if (track.isPlayable) RowAction("Add to playlist") { addTo(listOf(track.path)) } else null,
+        RowAction("Hide") { hide(track.path) },
     )
 }
 
@@ -114,6 +150,7 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
     val player = LocalPlayer.current
     // The play button takes everything in the folder, subfolders included.
     val everything = remember(library.tracks, folder) { library.tracks.under(folder).filter { it.isPlayable } }
+    val addTo = LocalAddToPlaylist.current
 
     Page(
         title = if (path.isEmpty()) "Music" else path.substringAfterLast('/'),
@@ -134,6 +171,11 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
         barActions = {
             BarIcon(R.drawable.ic_search, "Search") { push(Screen.Search) }
             MoreMenu(library.folderSort, library::sortFolders) { close ->
+                if (everything.isNotEmpty()) {
+                    MenuItem("Shuffle") { close(); player.play(everything, shuffled = true) }
+                    // Every song in this folder and its subfolders.
+                    MenuItem("Add all to playlist") { close(); addTo(everything.map { it.path }) }
+                }
                 if (path.isEmpty() && library.hidden.isNotEmpty()) MenuItem("Hidden folders and songs") { close(); push(Screen.Hidden) }
                 val debug = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
                 if (path.isEmpty() && debug) MenuItem("Design gallery") { close(); push(Screen.Gallery) }
@@ -149,12 +191,13 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
             FolderRow(f, push, listOf(
                 RowAction("Play") { player.play(library.tracks.under(f.path)) },
                 RowAction("Shuffle") { player.play(library.tracks.under(f.path), shuffled = true) },
+                RowAction("Add to playlist") { addTo(library.tracks.under(f.path).filter { it.isPlayable }.map { it.path }) },
                 RowAction("Hide") { hide(f.path) },
             ))
         }
         if (listing.folders.isNotEmpty() && listing.tracks.isNotEmpty()) item { Subheader("Songs") }
         items(listing.tracks, key = { "t:" + it.path }) { t ->
-            TrackRow(t, { player.play(listing.tracks, t) }, listOf(RowAction("Hide") { hide(t.path) }))
+            TrackRow(t, { player.play(listing.tracks, t) }, songActions(t, hide), swipeToAdd = true)
         }
         if (listing.songCount == 0 && !library.isReading) item {
             EmptyState(
@@ -191,7 +234,7 @@ fun SongsScreen(push: (Screen) -> Unit) {
             songs.isEmpty() && !library.isReading -> item {
                 EmptyState("No music yet", "Copy music into the Music folder over USB, then pull down to refresh.", "Refresh", { library.requestRefresh() }, Modifier.fillMaxWidth().padding(top = 48.dp))
             }
-            else -> items(songs, key = { it.path }) { t -> TrackRow(t, { player.play(songs, t) }, listOf(RowAction("Hide") { hide(t.path) })) }
+            else -> items(songs, key = { it.path }) { t -> TrackRow(t, { player.play(songs, t) }, songActions(t, hide), swipeToAdd = true) }
         }
     }
 }
@@ -230,6 +273,11 @@ fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
     SideEffect { overHeader.value = false }
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(library.tracks, query) { library.tracks.search(query) }
+    val playlists = LocalPlaylists.current
+    val lists = remember(playlists.all, query) {
+        val term = app.nougat.library.folded(query.trim())
+        if (term.isEmpty()) emptyList() else playlists.sorted.filter { term in app.nougat.library.folded(it.name) }
+    }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val list = rememberLazyListState()
@@ -244,7 +292,7 @@ fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
             ) {
                 BarIcon(R.drawable.ic_arrow_back, "Back", back)
                 Box(Modifier.weight(1f).padding(horizontal = Metrics.grid)) {
-                    if (query.isEmpty()) Text("Songs, artists, albums, folders", style = Type.rowTitle, color = colors.ink3)
+                    if (query.isEmpty()) Text("Songs, artists, albums, folders, playlists", style = Type.rowTitle, color = colors.ink3)
                     BasicTextField(
                         query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus),
                         textStyle = Type.rowTitle.copy(color = colors.ink), singleLine = true, cursorBrush = SolidColor(colors.ink),
@@ -253,13 +301,17 @@ fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
                 if (query.isNotEmpty()) BarIcon(R.drawable.ic_close, "Clear") { query = "" }
             }
         }
-        if (results.folders.isEmpty() && results.tracks.isEmpty()) {
+        if (results.folders.isEmpty() && results.tracks.isEmpty() && lists.isEmpty()) {
             Text(
-                if (query.isBlank()) "Search songs, artists, albums and folders." else "Nothing matches “${query.trim()}”.",
+                if (query.isBlank()) "Search songs, artists, albums, folders and playlists." else "Nothing matches “${query.trim()}”.",
                 style = Type.body, color = colors.ink2, modifier = Modifier.padding(Metrics.margin),
             )
         }
         LazyColumn(Modifier.fillMaxSize(), state = list) {
+            if (lists.isNotEmpty()) item { Subheader("Playlists") }
+            items(lists, key = { "p:" + it.id }) { p ->
+                ListRow(p.name, subtitle = count(p.songs.mapNotNull(library::track).size, "song"), onTap = { push(Screen.Playlist(p.id)) }, leading = { PlaylistAvatar() })
+            }
             if (results.folders.isNotEmpty()) item { Subheader("Folders") }
             items(results.folders, key = { "f:" + it.path }) { FolderRow(it, push) }
             if (results.tracks.isNotEmpty()) item { Subheader("Songs") }

@@ -1,6 +1,19 @@
 package app.nougat.playback
 
 import android.content.Context
+import android.media.AudioManager
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
+import app.nougat.equalizer.EqualizerSettings
+import app.nougat.equalizer.SoundEffects
+import app.nougat.visualizer.Spectrum
+import app.nougat.visualizer.SpectrumAnalyzer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
@@ -33,15 +46,35 @@ import androidx.media3.common.Player as MediaPlayer
  * headset and car buttons (through `sessionPlayer`), audio focus and pausing when headphones go.
  * Screens read the Compose state below; everything runs on the main thread.
  */
-class Player(context: Context, private val library: MediaLibrary, private val artwork: ArtworkStore) {
+@OptIn(UnstableApi::class)
+class Player(
+    context: Context,
+    private val library: MediaLibrary,
+    private val artwork: ArtworkStore,
+    equalizer: EqualizerSettings,
+) {
     private val scope = MainScope()
     private val stateFile = File(context.filesDir, "player.json")
 
-    val exo: ExoPlayer = ExoPlayer.Builder(context)
+    /** Bar heights for the visualizer. Not observable: it is read on every frame. */
+    val spectrum = Spectrum()
+
+    /** Set while a visualizer is on screen and the app is in front: the music is analysed only then (D50). */
+    @Volatile var isVisualizing = false
+        set(value) {
+            field = value
+            if (!value) spectrum.reset()
+        }
+
+    private val sessionId = (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager).generateAudioSessionId()
+    private val effects = SoundEffects(sessionId)
+
+    val exo: ExoPlayer = ExoPlayer.Builder(context, renderers(context))
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
         .setHandleAudioBecomingNoisy(true)
         .setWakeMode(C.WAKE_MODE_LOCAL)
         .build()
+        .apply { audioSessionId = sessionId }
 
     private var queue = PlayQueue()
     /** A position restored from the last run, applied when the song is first opened. */
@@ -65,16 +98,19 @@ class Player(context: Context, private val library: MediaLibrary, private val ar
     val positionMs get() = pendingSeek ?: exo.currentPosition
     val durationMs get() = current?.durationMs ?: 0L
 
+    /** How far through the song, 0 to 1, cheap enough to read on every frame. */
+    val roughProgress get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+
     /**
      * The player the media session (notification, lock screen, buttons) talks to. Next and previous
      * go to Nougat's queue, so they are always offered, as is play after a restart.
      */
     val sessionPlayer: MediaPlayer = object : ForwardingPlayer(exo) {
-        private val extra = listOf(
-            COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, COMMAND_SEEK_TO_PREVIOUS, COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-        )
-        override fun getAvailableCommands() = super.getAvailableCommands().buildUpon().addAll(*extra.toIntArray()).build()
-        override fun isCommandAvailable(command: Int) = command in extra || super.isCommandAvailable(command)
+        override fun getAvailableCommands() = super.getAvailableCommands().buildUpon()
+            .add(COMMAND_SEEK_TO_NEXT).add(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+            .add(COMMAND_SEEK_TO_PREVIOUS).add(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+            .build()
+        override fun isCommandAvailable(command: Int) = availableCommands.contains(command)
         override fun seekToNext() = next()
         override fun seekToNextMediaItem() = next()
         override fun seekToPrevious() = previous()
@@ -86,7 +122,10 @@ class Player(context: Context, private val library: MediaLibrary, private val ar
         exo.addListener(object : MediaPlayer.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 isPlaying = playWhenReady
-                if (!playWhenReady) save()
+                if (!playWhenReady) {
+                    save()
+                    spectrum.reset() // the bars fall back while the music is paused
+                }
             }
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == MediaPlayer.STATE_ENDED) apply(queue.next(auto = true))
@@ -96,6 +135,8 @@ class Player(context: Context, private val library: MediaLibrary, private val ar
                 apply(queue.next())
             }
         })
+        effects.apply(equalizer.state)
+        equalizer.onChange = effects::apply
         restore()
         scope.launch {
             // The library knows the songs; follow it to show the remembered song and to drop deleted ones (D40).
@@ -260,6 +301,53 @@ class Player(context: Context, private val library: MediaLibrary, private val ar
         isShuffled = queue.isShuffled
         repeatMode = queue.repeatMode
         if (queue.current == null) current = null
+    }
+
+    // The visualizer's tap: decoded audio on its way to the speaker, without any microphone permission.
+
+    private fun renderers(context: Context) = object : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+            DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(TeeAudioProcessor(Tap()))).build()
+    }
+
+    /**
+     * Gathers slices of `SpectrumAnalyzer.SIZE` frames, channels summed, and turns each into bars on the
+     * playback thread, only while `isVisualizing`.
+     * ponytail: the tap sees audio as it is decoded, a buffer ahead of the speaker, so bars may lead the
+     * sound slightly; delay the levels by the sink's latency if that shows.
+     */
+    private inner class Tap : TeeAudioProcessor.AudioBufferSink {
+        private val analyzer = SpectrumAnalyzer()
+        private val slice = FloatArray(SpectrumAnalyzer.SIZE)
+        private var filled = 0
+        private var rate = 44_100
+        private var channels = 2
+        private var encoding = C.ENCODING_PCM_16BIT
+
+        override fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) {
+            rate = sampleRateHz
+            channels = channelCount
+            this.encoding = encoding
+            filled = 0
+        }
+
+        override fun handleBuffer(buffer: ByteBuffer) {
+            if (!isVisualizing || channels <= 0) return
+            val data = buffer.duplicate().order(ByteOrder.nativeOrder())
+            val float = encoding == C.ENCODING_PCM_FLOAT
+            if (!float && encoding != C.ENCODING_PCM_16BIT) return
+            val frameBytes = channels * if (float) 4 else 2
+            while (data.remaining() >= frameBytes) {
+                var sum = 0f
+                repeat(channels) { sum += if (float) data.float else data.short / 32768f }
+                slice[filled++] = sum
+                if (filled == slice.size) {
+                    filled = 0
+                    spectrum.levels = analyzer.levels(slice, channels, rate)
+                    spectrum.wave = analyzer.wave(slice).also { w -> for (i in w.indices) w[i] /= channels }
+                }
+            }
+        }
     }
 
     // Remembering between runs: the queue and the position, saved on every song change, on pause and
