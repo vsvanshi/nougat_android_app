@@ -56,7 +56,7 @@ fun ListRow(
     subtitle: String? = null,
     detail: String? = null,
     highlighted: Boolean = false,
-    /** False greys the row out and ignores taps, for a song Android cannot play. */
+    /** False dims the row and ignores taps (its menu still opens), for a song Android cannot play. */
     enabled: Boolean = true,
     spokenState: String? = null,
     actions: List<RowAction> = emptyList(),
@@ -71,13 +71,13 @@ fun ListRow(
     val pressed by interaction.collectIsPressedAsState()
     val large = LocalDensity.current.fontScale >= 1.5f
 
-    Box(modifier.alpha(if (enabled) 1f else 0.38f)) {
+    Box(modifier.alpha(if (enabled) 1f else 0.5f)) {
         Row(
             Modifier.fillMaxWidth()
                 .combinedClickable(
-                    interaction, indication = null, enabled = enabled && (onTap != null || actions.isNotEmpty()),
+                    interaction, indication = null, enabled = (enabled && onTap != null) || actions.isNotEmpty(),
                     onLongClick = if (actions.isEmpty()) null else ({ menu = true }),
-                    onClick = { onTap?.invoke() },
+                    onClick = { if (enabled) onTap?.invoke() },
                 )
                 .background(colors.ink.copy(alpha = if (pressed) 0.12f else 0f))
                 .defaultMinSize(minHeight = if (subtitle == null) Metrics.rowOneLine else Metrics.rowTwoLine)

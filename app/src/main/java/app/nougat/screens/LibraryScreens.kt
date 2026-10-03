@@ -65,8 +65,6 @@ import app.nougat.library.search
 import app.nougat.library.under
 import kotlinx.coroutines.launch
 
-private const val NOT_YET = "Playback arrives in phase 3"
-
 /** Hides a folder or song, with Undo in the snackbar. */
 @Composable
 private fun rememberHide(): (path: String) -> Unit {
@@ -82,19 +80,14 @@ private fun rememberHide(): (path: String) -> Unit {
     }
 }
 
-@Composable
-private fun rememberNotify(): (String) -> Unit {
-    val notices = LocalNotices.current
-    val scope = rememberCoroutineScope()
-    return { message -> scope.launch { notices.showSnackbar(message) } }
-}
-
-/** A song: thumbnail, title, artist, duration. Songs Android cannot play are greyed out. */
+/** A song: thumbnail, title, artist, duration; the one playing in the accent colour. Songs Android cannot play are dimmed. */
 @Composable
 fun TrackRow(track: Track, onTap: () -> Unit, actions: List<RowAction> = emptyList()) {
+    val playing = LocalPlayer.current.current?.path == track.path
     ListRow(
-        track.title, subtitle = track.artist ?: "Unknown artist", detail = playbackTime(track.durationMs),
-        enabled = track.isPlayable, spokenState = if (track.isPlayable) null else "Cannot be played",
+        track.title, subtitle = if (track.isPlayable) track.artist ?: "Unknown artist" else "Unsupported format",
+        detail = if (track.isPlayable) playbackTime(track.durationMs) else null,
+        highlighted = playing, enabled = track.isPlayable, spokenState = if (playing) "Playing" else null,
         actions = actions, onTap = onTap, leading = { TrackThumbnail(track) },
     )
 }
@@ -115,11 +108,12 @@ private fun FolderRow(folder: FolderSummary, push: (Screen) -> Unit, actions: Li
 @Composable
 fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
     val library = LocalLibrary.current
-    val notify = rememberNotify()
     val hide = rememberHide()
     val folder = if (path.isEmpty()) library.tracks.commonFolder() else path
     val listing = remember(library.tracks, folder, library.folderSort) { library.tracks.listing(folder, library.folderSort) }
-    val playable = remember(library.tracks, folder) { library.tracks.under(folder).any { it.isPlayable } }
+    val player = LocalPlayer.current
+    // The play button takes everything in the folder, subfolders included.
+    val everything = remember(library.tracks, folder) { library.tracks.under(folder).filter { it.isPlayable } }
 
     Page(
         title = if (path.isEmpty()) "Music" else path.substringAfterLast('/'),
@@ -129,7 +123,7 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
             listing.folders.isEmpty() -> count(listing.songCount, "song")
             else -> "${count(listing.folders.size, "folder")}, ${count(listing.songCount, "song")}"
         },
-        action = if (playable) HeaderAction("Play folder") { notify(NOT_YET) } else null,
+        action = if (everything.isNotEmpty()) HeaderAction("Play folder") { player.play(everything) } else null,
         firstSubheader = when {
             listing.folders.isNotEmpty() -> "Folders"
             listing.tracks.isNotEmpty() -> "Songs"
@@ -152,11 +146,15 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
             return@Page
         }
         items(listing.folders, key = { "f:" + it.path }) { f ->
-            FolderRow(f, push, listOf(RowAction("Play") { notify(NOT_YET) }, RowAction("Hide") { hide(f.path) }))
+            FolderRow(f, push, listOf(
+                RowAction("Play") { player.play(library.tracks.under(f.path)) },
+                RowAction("Shuffle") { player.play(library.tracks.under(f.path), shuffled = true) },
+                RowAction("Hide") { hide(f.path) },
+            ))
         }
         if (listing.folders.isNotEmpty() && listing.tracks.isNotEmpty()) item { Subheader("Songs") }
         items(listing.tracks, key = { "t:" + it.path }) { t ->
-            TrackRow(t, { notify(NOT_YET) }, listOf(RowAction("Hide") { hide(t.path) }))
+            TrackRow(t, { player.play(listing.tracks, t) }, listOf(RowAction("Hide") { hide(t.path) }))
         }
         if (listing.songCount == 0 && !library.isReading) item {
             EmptyState(
@@ -171,7 +169,7 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
 @Composable
 fun SongsScreen(push: (Screen) -> Unit) {
     val library = LocalLibrary.current
-    val notify = rememberNotify()
+    val player = LocalPlayer.current
     val hide = rememberHide()
     val byName = library.songSort == LibrarySort.Name
     val songs = remember(library.tracksByTitle, library.songSort) {
@@ -180,7 +178,7 @@ fun SongsScreen(push: (Screen) -> Unit) {
     Page(
         title = "Songs",
         subtitle = if (!library.hasAccess) null else if (songs.isEmpty()) "No songs" else count(songs.size, "song"),
-        action = if (songs.any { it.isPlayable }) HeaderAction("Shuffle all", R.drawable.ic_shuffle) { notify(NOT_YET) } else null,
+        action = if (songs.any { it.isPlayable }) HeaderAction("Shuffle all", R.drawable.ic_shuffle) { player.play(songs, shuffled = true) } else null,
         firstSubheader = if (songs.isEmpty()) null else if (byName) "By name" else "Newest first",
         barActions = {
             BarIcon(R.drawable.ic_search, "Search") { push(Screen.Search) }
@@ -193,7 +191,7 @@ fun SongsScreen(push: (Screen) -> Unit) {
             songs.isEmpty() && !library.isReading -> item {
                 EmptyState("No music yet", "Copy music into the Music folder over USB, then pull down to refresh.", "Refresh", { library.requestRefresh() }, Modifier.fillMaxWidth().padding(top = 48.dp))
             }
-            else -> items(songs, key = { it.path }) { t -> TrackRow(t, { notify(NOT_YET) }, listOf(RowAction("Hide") { hide(t.path) })) }
+            else -> items(songs, key = { it.path }) { t -> TrackRow(t, { player.play(songs, t) }, listOf(RowAction("Hide") { hide(t.path) })) }
         }
     }
 }
@@ -227,7 +225,7 @@ private fun MenuItem(label: String, checked: Boolean = false, onClick: () -> Uni
 fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
     val colors = LocalColors.current
     val library = LocalLibrary.current
-    val notify = rememberNotify()
+    val player = LocalPlayer.current
     val overHeader = LocalOverHeader.current
     SideEffect { overHeader.value = false }
     var query by rememberSaveable { mutableStateOf("") }
@@ -265,7 +263,7 @@ fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
             if (results.folders.isNotEmpty()) item { Subheader("Folders") }
             items(results.folders, key = { "f:" + it.path }) { FolderRow(it, push) }
             if (results.tracks.isNotEmpty()) item { Subheader("Songs") }
-            items(results.tracks, key = { "t:" + it.path }) { TrackRow(it, { notify(NOT_YET) }) }
+            items(results.tracks, key = { "t:" + it.path }) { t -> TrackRow(t, { player.play(results.tracks, t) }) }
         }
     }
 }

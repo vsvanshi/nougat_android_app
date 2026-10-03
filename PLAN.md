@@ -113,13 +113,13 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 3: playback
 
-- [ ] **P3.1 Queue.** Port `PlayQueue` exactly, as pure Kotlin, with the queue tests. Reference: `Playback/PlayQueue.swift`, `PlaybackTests.swift`.
+- [x] **P3.1 Queue.** Port `PlayQueue` exactly, as pure Kotlin, with the queue tests. Reference: `Playback/PlayQueue.swift`, `PlaybackTests.swift`.
   Done when: the ported tests pass.
-- [ ] **P3.2 Player.** Media3 ExoPlayer inside a `MediaSessionService`. Nougat's `PlayQueue` decides the order (shuffle included), so behaviour matches iPhone: tapping a song plays the list it is in (D32), previous restarts after 3 s, shuffle stays on across lists, repeat cycles off / all / one, deleted songs leave the queue (D40), position saved on song change, pause and going to the background (D35). Audio focus and "becoming noisy" handled by Media3. Reference: `Player.swift`.
+- [x] **P3.2 Player.** Media3 ExoPlayer inside a `MediaSessionService`. Nougat's `PlayQueue` decides the order (shuffle included), so behaviour matches iPhone: tapping a song plays the list it is in (D32), previous restarts after 3 s, shuffle stays on across lists, repeat cycles off / all / one, deleted songs leave the queue (D40), position saved on song change, pause and going to the background (D35). Audio focus and "becoming noisy" handled by Media3. Reference: `Player.swift`.
   Done when: play, pause, next, previous, seek, shuffle, repeat and restore after a restart work on a device.
-- [ ] **P3.3 Mini player, Now playing, Queue.** Reference: `NowPlayingScreen.swift` (including the larger mini-player buttons, D45, and the shuffle and repeat toggle look, D53).
+- [x] **P3.3 Mini player, Now playing, Queue.** Reference: `NowPlayingScreen.swift` (including the larger mini-player buttons, D45, and the shuffle and repeat toggle look, D53).
   Done when: all three match the iPhone screens.
-- [ ] **P3.4 System controls.** Media notification, lock screen, Bluetooth and headphone buttons, calls, unplugging.
+- [x] **P3.4 System controls.** Media notification, lock screen, Bluetooth and headphone buttons, calls, unplugging.
   Done when: Varun confirms each on his phone.
 
 ### Phase 4: playlists

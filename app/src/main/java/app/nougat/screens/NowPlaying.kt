@@ -1,91 +1,126 @@
 package app.nougat.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import app.nougat.R
+import app.nougat.design.BarHeight
 import app.nougat.design.BarIcon
 import app.nougat.design.Depth
 import app.nougat.design.LetterTile
+import app.nougat.design.ListRow
 import app.nougat.design.LocalColors
 import app.nougat.design.Metrics
+import app.nougat.design.Motion
 import app.nougat.design.PlayButton
 import app.nougat.design.Slider
 import app.nougat.design.ToggleIcon
 import app.nougat.design.Type
 import app.nougat.design.depth
 import app.nougat.design.pressable
-import kotlin.math.roundToInt
+import app.nougat.library.Track
+import app.nougat.library.playbackTime
+import app.nougat.playback.Player
+import app.nougat.playback.RepeatMode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// Sample song until playback arrives in phase 3.
-private const val TITLE = "Kite Season"
-private const val ARTIST = "Anouk Verma"
+val LocalPlayer = staticCompositionLocalOf<Player> { error("No player") }
 
 /**
- * Our own bar above the bottom navigation: tap opens Now playing. Play/pause and next are as large
- * as the bar allows (D45): 34 and 30 dp glyphs, each in a 56 dp wide tap area.
+ * Our own bar above the bottom navigation, shown once there is a song: tap opens Now playing.
+ * Play/pause and next are as large as the bar allows (D45): 34 and 30 dp glyphs in 56 dp wide tap areas.
  */
 @Composable
 fun MiniPlayer(onOpen: () -> Unit) {
     val colors = LocalColors.current
-    var playing by rememberSaveable { mutableStateOf(false) }
+    val player = LocalPlayer.current
+    val track = player.current ?: return
     Row(
         Modifier.depth(Depth.One, RoundedCornerShape(0.dp)).background(colors.surface).fillMaxWidth().height(64.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.weight(1f).fillMaxSize().pressable(RoundedCornerShape(0.dp), onOpen).padding(start = Metrics.margin),
+            Modifier.weight(1f).fillMaxSize().pressable(RoundedCornerShape(0.dp), onOpen).padding(start = Metrics.margin)
+                .semantics(mergeDescendants = true) {},
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LetterTile(TITLE)
+            TrackThumbnail(track)
             Column(Modifier.padding(start = 12.dp)) {
-                Text(TITLE, style = Type.rowTitle, color = colors.ink, maxLines = 1)
-                Text(ARTIST, style = Type.body, color = colors.ink2, maxLines = 1)
+                Text(track.title, style = Type.rowTitle, color = colors.ink, maxLines = 1)
+                Text(track.artist ?: "Unknown artist", style = Type.body, color = colors.ink2, maxLines = 1)
             }
         }
-        MiniButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play_arrow, if (playing) "Pause" else "Play", 34.dp) { playing = !playing }
-        MiniButton(R.drawable.ic_skip_next, "Next", 30.dp) {}
+        MiniButton(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow, if (player.isPlaying) "Pause" else "Play", 34.dp) { player.toggle() }
+        MiniButton(R.drawable.ic_skip_next, "Next", 30.dp) { player.next() }
     }
 }
 
@@ -101,15 +136,18 @@ private fun MiniButton(@DrawableRes icon: Int, label: String, glyph: Dp, onClick
 
 /**
  * Full screen over the tabs. System back and predictive back close it (the screen shrinks as the
- * back gesture is dragged), and so do the close button and a swipe down.
+ * back gesture is dragged), and so do the close button and a swipe down on the cover.
  */
 @Composable
-fun NowPlayingScreen(onClose: () -> Unit) {
+fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
     val colors = LocalColors.current
+    val player = LocalPlayer.current
     val scope = rememberCoroutineScope()
     var backProgress by remember { mutableFloatStateOf(0f) }
     val drag = remember { Animatable(0f) }
     val closeAt = with(LocalDensity.current) { 160.dp.toPx() }
+    var queueShown by remember { mutableStateOf(false) }
+    SideEffect { overHeader.value = !queueShown }
 
     PredictiveBackHandler { events ->
         try {
@@ -120,65 +158,216 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             throw e
         }
     }
+    // Nothing left to show, for example when every queued song was deleted.
+    if (player.current == null) LaunchedEffect(Unit) { onClose() }
 
-    Column(
-        Modifier.fillMaxSize()
-            .graphicsLayer {
-                val scale = 1f - 0.1f * backProgress
-                scaleX = scale
-                scaleY = scale
-                translationY = drag.value
-                shape = RoundedCornerShape((32 * backProgress).dp)
-                clip = backProgress > 0f
-            }
-            .background(colors.paper)
-            .draggable(
-                rememberDraggableState { dy -> scope.launch { drag.snapTo((drag.value + dy).coerceAtLeast(0f)) } },
-                Orientation.Vertical,
-                onDragStopped = { velocity ->
-                    if (drag.value > closeAt || velocity > 2000f) onClose() else drag.animateTo(0f)
-                },
-            ),
+    Box(
+        Modifier.fillMaxSize().graphicsLayer {
+            val scale = 1f - 0.1f * backProgress
+            scaleX = scale
+            scaleY = scale
+            translationY = drag.value
+            shape = RoundedCornerShape((32 * backProgress).dp)
+            clip = backProgress > 0f
+        },
     ) {
-        // Cover area: the header colour with the title's letter until artwork and the visualizer arrive.
-        Box(Modifier.fillMaxWidth().aspectRatio(1f).background(colors.header)) {
-            Text(
-                TITLE.take(1), style = Type.largeTitle.copy(fontSize = Type.largeTitle.fontSize * 3), color = colors.onHeader2,
-                modifier = Modifier.align(Alignment.Center),
+        Column(Modifier.fillMaxSize().background(colors.paper)) {
+            Cover(
+                Modifier.draggable(
+                    rememberDraggableState { dy -> scope.launch { drag.snapTo((drag.value + dy).coerceAtLeast(0f)) } },
+                    Orientation.Vertical,
+                    onDragStopped = { velocity -> if (drag.value > closeAt || velocity > 2000f) onClose() else drag.animateTo(0f) },
+                ),
+                onClose = onClose, onQueue = { queueShown = true },
             )
-            CompositionLocalProvider(LocalContentColor provides colors.onHeader) {
-                Row(Modifier.statusBarsPadding().padding(4.dp)) {
-                    BarIcon(R.drawable.ic_expand_more, "Close", onClose)
-                }
+            player.current?.let { Details(it) }
+        }
+        AnimatedVisibility(
+            queueShown,
+            enter = slideInHorizontally(tween(Motion.standard)) { it },
+            exit = slideOutHorizontally(tween(Motion.standard)) { it },
+        ) {
+            BackHandler { queueShown = false }
+            QueueScreen(onBack = { queueShown = false })
+        }
+    }
+}
+
+/** The cover, or the header colour with the title's letter until the visualizer arrives (P6). */
+@Composable
+private fun Cover(modifier: Modifier, onClose: () -> Unit, onQueue: () -> Unit) {
+    val colors = LocalColors.current
+    val player = LocalPlayer.current
+    val store = LocalArtwork.current
+    val track = player.current
+    // The last cover stays until the next song's is known.
+    val cover by produceState<ImageBitmap?>(null, track?.path) { value = track?.let { store.fullImage(it)?.asImageBitmap() } }
+    Box(modifier.fillMaxWidth().aspectRatio(1f).background(colors.header)) {
+        val image = cover
+        if (image != null) Image(image, null, Modifier.fillMaxSize().clearAndSetSemantics {}, contentScale = ContentScale.Crop)
+        else Text(
+            track?.title?.take(1)?.uppercase().orEmpty(), style = Type.largeTitle.copy(fontSize = Type.largeTitle.fontSize * 3),
+            color = colors.onHeader2, modifier = Modifier.align(Alignment.Center).clearAndSetSemantics {},
+        )
+        // A scrim keeps the status bar and the buttons readable over any cover.
+        Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(colors.header.copy(alpha = 0.6f), colors.header.copy(alpha = 0f)))))
+        CompositionLocalProvider(LocalContentColor provides colors.onHeader) {
+            Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp).fillMaxWidth().height(BarHeight), verticalAlignment = Alignment.CenterVertically) {
+                BarIcon(R.drawable.ic_expand_more, "Close", onClose)
+                Spacer(Modifier.weight(1f))
+                BarIcon(R.drawable.ic_queue_music, "Queue", onQueue)
             }
         }
-        Column(Modifier.padding(horizontal = Metrics.margin)) {
-            Text(TITLE, style = Type.title, color = colors.ink, modifier = Modifier.padding(top = Metrics.margin))
-            Text("$ARTIST, Road Trip 2016", style = Type.body, color = colors.ink2)
-            var position by remember { mutableFloatStateOf(0.37f) }
-            Slider(position, { position = it }, "Position", "${(position * 178).roundToInt() / 60}:%02d".format((position * 178).roundToInt() % 60), Modifier.padding(top = Metrics.grid))
-            Controls()
+    }
+}
+
+/** Title, seek bar and controls. */
+@Composable
+private fun Details(track: Track) {
+    val colors = LocalColors.current
+    val player = LocalPlayer.current
+    Column(Modifier.padding(horizontal = Metrics.margin)) {
+        Column(Modifier.padding(top = Metrics.margin).semantics(mergeDescendants = true) {}) {
+            Text(track.title, style = Type.title, color = colors.ink, maxLines = 2)
+            val folder = track.path.substringBeforeLast('/', "").substringAfterLast('/')
+            Text(listOfNotNull(track.artist ?: "Unknown artist", folder.ifEmpty { null }).joinToString(", "), style = Type.body, color = colors.ink2, maxLines = 2)
+        }
+        SeekBar()
+        Row(
+            Modifier.fillMaxWidth().padding(top = Metrics.margin),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToggleIcon(R.drawable.ic_shuffle, "Shuffle", player.isShuffled, { player.toggleShuffle() })
+            ControlIcon(R.drawable.ic_skip_previous, "Previous") { player.previous() }
+            PlayButton(
+                if (player.isPlaying) "Pause" else "Play", { player.toggle() },
+                icon = if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow, size = Metrics.nowPlayingPlayButton,
+            )
+            ControlIcon(R.drawable.ic_skip_next, "Next") { player.next() }
+            ToggleIcon(
+                if (player.repeatMode == RepeatMode.One) R.drawable.ic_repeat_one else R.drawable.ic_repeat,
+                "Repeat ${player.repeatMode.name.lowercase()}", player.repeatMode != RepeatMode.Off, { player.cycleRepeat() },
+            )
         }
     }
 }
 
 @Composable
-private fun Controls() {
-    var shuffle by rememberSaveable { mutableStateOf(false) }
-    var repeat by rememberSaveable { mutableStateOf(false) }
-    var playing by rememberSaveable { mutableStateOf(false) }
-    val ink = LocalColors.current.ink
-    Row(
-        Modifier.fillMaxWidth().padding(top = Metrics.grid),
-        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+private fun ControlIcon(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(Metrics.touchTarget).pressable(androidx.compose.foundation.shape.CircleShape, onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
     ) {
-        ToggleIcon(R.drawable.ic_shuffle, "Shuffle", shuffle, { shuffle = it })
-        CompositionLocalProvider(LocalContentColor provides ink) { BarIcon(R.drawable.ic_skip_previous, "Previous") {} }
-        PlayButton(
-            if (playing) "Pause" else "Play", { playing = !playing },
-            icon = if (playing) R.drawable.ic_pause else R.drawable.ic_play_arrow, size = Metrics.nowPlayingPlayButton,
-        )
-        CompositionLocalProvider(LocalContentColor provides ink) { BarIcon(R.drawable.ic_skip_next, "Next") {} }
-        ToggleIcon(R.drawable.ic_repeat, "Repeat", repeat, { repeat = it })
+        Icon(painterResource(icon), null, tint = LocalColors.current.ink, modifier = Modifier.size(36.dp))
     }
 }
+
+/** The slider follows the song twice a second; a drag moves playback when the finger lifts. */
+@Composable
+private fun SeekBar() {
+    val player = LocalPlayer.current
+    var position by remember { mutableLongStateOf(player.positionMs) }
+    var scrub by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(player.current?.path) {
+        while (true) {
+            position = player.positionMs
+            delay(500)
+        }
+    }
+    val duration = player.durationMs.coerceAtLeast(1)
+    val shown = scrub?.toLong() ?: position
+    Column(Modifier.padding(top = Metrics.grid)) {
+        Slider(
+            shown.toFloat(), { scrub = it }, "Position", "${playbackTime(shown)} of ${playbackTime(duration)}",
+            range = 0f..duration.toFloat(),
+            onEditingChanged = { editing -> if (!editing) scrub?.let { player.seek(it.toLong()); position = it.toLong(); scrub = null } },
+        )
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics {}) {
+            Text(playbackTime(shown), style = Type.caption, color = LocalColors.current.ink2)
+            Spacer(Modifier.weight(1f))
+            Text(playbackTime(duration), style = Type.caption, color = LocalColors.current.ink2)
+        }
+    }
+}
+
+/**
+ * What plays next. Tap to jump, long-press and drag to reorder, swipe sideways to remove.
+ * Compose has no list reordering of its own, so the drag is done here.
+ */
+@Composable
+private fun QueueScreen(onBack: () -> Unit) {
+    val colors = LocalColors.current
+    val player = LocalPlayer.current
+    val library = LocalLibrary.current
+    val list = rememberLazyListState()
+    var dragged by remember { mutableStateOf<Int?>(null) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    val items = player.items
+    val unique = items.toSet().size == items.size
+
+    Column(Modifier.fillMaxSize().background(colors.paper)) {
+        CompositionLocalProvider(LocalContentColor provides colors.ink) {
+            Row(Modifier.statusBarsPadding().height(BarHeight).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                BarIcon(R.drawable.ic_arrow_back, "Back", onBack)
+                Text("Queue", style = Type.barTitle, color = colors.ink, modifier = Modifier.padding(start = Metrics.margin))
+            }
+        }
+        LazyColumn(
+            Modifier.fillMaxSize().navigationBarsPadding(),
+            state = list,
+        ) {
+            itemsIndexed(items, key = { i, path -> if (unique) path else "$i" }) { position, path ->
+                val track = library.track(path) ?: return@itemsIndexed
+                val lifted = dragged == position
+                val swipe = rememberSwipeToDismissBoxState()
+                LaunchedEffect(swipe.currentValue) {
+                    if (swipe.currentValue != SwipeToDismissBoxValue.Settled) player.items.indexOf(path).takeIf { it >= 0 }?.let(player::remove)
+                }
+                SwipeToDismissBox(
+                    swipe, backgroundContent = { Box(Modifier.fillMaxSize().background(colors.fill)) },
+                    // The drag lives on the row, inside the list, so the row has the finger before the list can scroll.
+                    modifier = Modifier.pointerInput(path) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { dragged = player.items.indexOf(path); offset = 0f },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                val from = dragged ?: return@detectDragGesturesAfterLongPress
+                                offset += amount.y
+                                val info = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == from } ?: return@detectDragGesturesAfterLongPress
+                                val middle = info.offset + info.size / 2 + offset
+                                val target = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index != from && middle.toInt() in it.offset until it.offset + it.size }
+                                if (target != null) {
+                                    player.move(from, target.index)
+                                    offset += info.offset - target.offset
+                                    dragged = target.index
+                                }
+                            },
+                            onDragEnd = { dragged = null; offset = 0f },
+                            onDragCancel = { dragged = null; offset = 0f },
+                        )
+                    }.zIndex(if (lifted) 1f else 0f).graphicsLayer { if (lifted) translationY = offset }
+                        .then(if (lifted) Modifier.shadow(6.dp) else Modifier).animateItem(placementSpec = if (lifted) null else tween(Motion.standard)),
+                ) {
+                    // No menu here: a long press starts a drag. TalkBack gets the same edits as actions.
+                    Box(
+                        Modifier.background(colors.paper).semantics {
+                            customActions = listOfNotNull(
+                                CustomAccessibilityAction("Remove from queue") { player.remove(position); true },
+                                if (position > 0) CustomAccessibilityAction("Move up") { player.move(position, position - 1); true } else null,
+                                if (position < items.size - 1) CustomAccessibilityAction("Move down") { player.move(position, position + 1); true } else null,
+                            )
+                        },
+                    ) {
+                        ListRow(
+                            track.title, subtitle = track.artist ?: "Unknown artist", detail = playbackTime(track.durationMs),
+                            highlighted = position == player.index, spokenState = if (position == player.index) "Playing" else null,
+                            onTap = { player.jump(position) }, leading = { TrackThumbnail(track) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

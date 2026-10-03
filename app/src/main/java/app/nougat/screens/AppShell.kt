@@ -66,8 +66,7 @@ import app.nougat.design.LocalOverHeader
 import app.nougat.design.Motion
 import app.nougat.design.NoticeHost
 import app.nougat.design.Type
-import app.nougat.library.ArtworkStore
-import app.nougat.library.MediaLibrary
+import app.nougat.App
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -99,17 +98,24 @@ val LocalNotices = staticCompositionLocalOf { SnackbarHostState() }
 fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
-    val library = remember { MediaLibrary(context.applicationContext) }
-    val artwork = remember { ArtworkStore(context) }
+    val app = context.applicationContext as App
+    val library = app.library
+    val artwork = app.artwork
+    val player = app.player
     // Follow MediaStore while the app is in front, and read again on every return, which also
     // picks up a permission granted in Settings.
     LifecycleResumeEffect(library) {
         val scope = MainScope()
         library.follow(scope)
-        onPauseOrDispose { scope.cancel() }
+        onPauseOrDispose {
+            scope.cancel()
+            player.save() // the position, when the app goes to the background (D35)
+        }
     }
     val notices = remember { SnackbarHostState() }
     val overHeader = remember { mutableStateOf(true) }
+    // Now playing's own answer: its cover is dark, its queue is paper.
+    val nowPlayingOverHeader = remember { mutableStateOf(true) }
     var tab by rememberSaveable { mutableStateOf(Tab.Folders) }
     val stacks = rememberSaveable(saver = StacksSaver) { Tab.entries.map { mutableStateListOf(it.root) } }
     var nowPlaying by rememberSaveable { mutableStateOf(false) }
@@ -121,12 +127,12 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val view = LocalView.current
     LaunchedEffect(dark, nowPlaying) {
         val window = (view.context as Activity).window
-        snapshotFlow { overHeader.value }.collect { over ->
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !(over || nowPlaying) && !dark
+        snapshotFlow { if (nowPlaying) nowPlayingOverHeader.value else overHeader.value }.collect { over ->
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !over && !dark
         }
     }
 
-    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library, LocalArtwork provides artwork) {
+    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library, LocalArtwork provides artwork, LocalPlayer provides player) {
         Box(Modifier.fillMaxSize().background(colors.paper)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
@@ -180,7 +186,7 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
                 enter = slideInVertically(tween(Motion.entering, easing = Motion.easing)) { it },
                 exit = slideOutVertically(tween(Motion.leaving, easing = Motion.easing)) { it },
             ) {
-                NowPlayingScreen(onClose = { nowPlaying = false })
+                NowPlayingScreen(nowPlayingOverHeader, onClose = { nowPlaying = false })
             }
         }
     }

@@ -53,6 +53,19 @@ class MediaLibrary(private val context: Context) {
     var isReading by mutableStateOf(false)
         private set
 
+    /** True once the first read has finished, so an empty list means "no songs", not "not read yet". */
+    var hasRead = false
+        private set
+
+    /** Goes up after every read that changed something; the player follows it. */
+    var readCount by mutableStateOf(0)
+        private set
+
+    private var byPath = emptyMap<String, Track>()
+
+    /** A song on the phone by path, hidden or not; null once its file has gone. */
+    fun track(path: String) = byPath[path]
+
     /** Sort order of folder screens and of Songs, remembered. */
     var folderSort by mutableStateOf(sortPref(FOLDER_SORT))
         private set
@@ -101,6 +114,7 @@ class MediaLibrary(private val context: Context) {
         hasAccess = checkAccess()
         if (!hasAccess) {
             all = emptyList()
+            byPath = emptyMap()
             publish()
             return
         }
@@ -109,9 +123,12 @@ class MediaLibrary(private val context: Context) {
         val read = withContext(Dispatchers.IO) { read() }
         Log.i("Nougat", "Read ${read.size} songs in ${System.currentTimeMillis() - started} ms")
         isReading = false
-        if (read != all) {
+        hasRead = true
+        if (read != all || readCount == 0) {
             all = read
+            byPath = read.associateBy { it.path }
             publish()
+            readCount++
         }
     }
 
