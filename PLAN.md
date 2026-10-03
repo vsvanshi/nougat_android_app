@@ -72,7 +72,7 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 1: design system and shell
 
-- [ ] **P1.1 Colours and accents.** Every fixed colour and the six accents from the iPhone `DESIGN.md` section 2, light and dark, plus the seventh "System" accent on Android 12 and later (decision A14); the accent as a composition local, chosen in `SharedPreferences`, teal by default. Reference: `Nougat/DesignSystem/Accent.swift`, asset colour sets, `NougatTests/DesignSystemTests.swift` (port the contrast checks).
+- [x] **P1.1 Colours and accents.** Every fixed colour and the six accents from the iPhone `DESIGN.md` section 2, light and dark, plus the seventh "System" accent on Android 12 and later (decision A14); the accent as a composition local, chosen in `SharedPreferences`, teal by default. Reference: `Nougat/DesignSystem/Accent.swift`, asset colour sets, `NougatTests/DesignSystemTests.swift` (port the contrast checks).
   Done when: the ported tests pass and a debug gallery shows every swatch in light and dark.
 - [ ] **P1.2 Type, metrics, icons.** Text styles in sp, sizes in dp, the 14 icons as vector drawables. Reference: `Typography.swift`, `Metrics.swift`.
   Done when: the gallery shows every style and icon.

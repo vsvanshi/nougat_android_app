@@ -30,7 +30,7 @@ On iPhone the rule was "iOS draws the chrome, Material fills the page". On Andro
 | Swipe actions | System swipe actions | Swipe a song row to reveal "Add to playlist", or "Remove" in a playlist |
 | Haptics | `sensoryFeedback` | `HapticFeedbackConstants`: `CLOCK_TICK` for the EQ 0 dB tick, `CONFIRM` for adding to a playlist (Android 11 and later; `VIRTUAL_KEY` before) |
 | Toggle switch | System switch tinted `switchOn` | Material switch tinted `switchOn` |
-| Accent | Six accents | Seven: the six plus "System", the wallpaper colour from Material You (the primary of `dynamicLightColorScheme` / `dynamicDarkColorScheme`) on Android 12 and later, not offered on older versions (decision A14) |
+| Accent | Six accents | Seven: the six plus "System", the wallpaper colour from Material You (the primary of `dynamicLightColorScheme` / `dynamicDarkColorScheme`) on Android 12 and later, not offered on older versions (decision A14). Taken from the system tonal palette (`system_accent1_*`) by tone, not from the Material colour roles, because the role `primary` (tone 40) is too dark for the play button on the header. Light: accent tone 60, accentText and accentFill tone 40, onAccent tone 100, switchOn tone 50. Dark: accent, text and fill tone 80, onAccent tone 20, switchOn tone 60. accentOnInverse follows the same rule as the six. These tones meet every contrast rule at any hue; the unit tests check it |
 | Removing | "Remove" deletes the app's copy | "Hide": Nougat stops showing the folder or song; no file is deleted. Settings lists hidden items to show again (decision A10) |
 
 ## 4. Native contract on Android

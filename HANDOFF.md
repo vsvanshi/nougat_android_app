@@ -7,9 +7,9 @@ Read `AGENTS.md` first. Keep this file short and true: rewrite "Current state" e
 | | |
 |---|---|
 | Updated | 2026-10-03 by Claude |
-| Phase | 0, set up, finished. Varun confirmed the app, icon and launch screen on his phone (P0.3). Now phase 1. |
-| Next task | P1.1: colours and accents. |
-| Code | Empty Compose app: `MainActivity` shows "Nougat" on the header colour. Wave N launcher icon (`res/drawable/ic_launcher_*.xml`, `res/mipmap-anydpi-v26/ic_launcher.xml`) and launch screen (`res/values/themes.xml`). |
+| Phase | 1, design system and shell. P1.1 done. |
+| Next task | P1.2: type, metrics, icons. |
+| Code | `design/Colors.kt` (fixed tokens, light and dark), `design/Accent.kt` (seven accents, saved in `SharedPreferences` "nougat", key "accent"), `design/Theme.kt` (`NougatTheme` provides `LocalColors` and `LocalAccent`), `design/Gallery.kt` (debug catalogue, shown by `MainActivity` until the shell exists; it is in the main source set for now, so P1.4 should move it behind a debug-only entry). Wave N icon and launch screen. Unit tests in `app/src/test/.../DesignSystemTests.kt`. Material 3's own `MaterialTheme` colour scheme is not mapped to the tokens yet: do it when the first Material component is used (P1.3 or P1.4). |
 | Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`, private. Commit or push only when Varun says. |
 | Tools on the Mac | JDK 17 (Zulu and JetBrains), ffmpeg, Homebrew. Android command-line tools from Homebrew (`sdkmanager` 22.0 on the path). SDK at `~/Library/Android/sdk` with `platforms;android-37.0`, `build-tools;37.0.0`, `platform-tools` 37.0.1 (about 380 MB); SDK licences accepted with Varun's agreement. `adb` on the path is Homebrew's, same version as the SDK one. No emulator (A7). |
 | Test phone | Samsung Galaxy A07, Android 16 (API 36), One UI 8.5, arm64, 720 x 1600 at 300 dpi (about 384 dp wide, a narrow screen). USB debugging is on and this Mac is authorised; it shows as `device` in `adb devices`. |
@@ -56,6 +56,12 @@ Newest first. Copy this template for each session:
 - Verified: built? tests run? seen on a device? Say "not verified" where true
 - Left for next: anything half-done, broken, or worth knowing
 ```
+
+### 2026-10-03, Claude (fifth session)
+- Tasks: committed P0 at Varun's request (`Set up the Android project with icon and launch screen`, not pushed). P1.1, finished.
+- Changed: `design/Colors.kt`, `design/Accent.kt`, `design/Theme.kt`, `design/Gallery.kt`, `MainActivity.kt`, `DesignSystemTests.kt`, `app/build.gradle.kts` (JUnit 4.13.2 for tests, as the plan says). `DESIGN.md`: the System accent's tones.
+- Verified: 4 unit tests pass (fixed colours match the design; the six accents and the System accent at any hue meet the iPhone contrast rules; dark mode shares one accent colour). Breaking a System tone on purpose made the test fail. On the phone: the gallery shows every swatch with its light and dark hex side by side; picking System recolours at once and survives a force-stop and restart. The phone's real wallpaper palette also passes every rule (closest: play glyph 3.17 against 3). The gallery itself was seen by the agent only in light mode; Varun then checked it in dark mode and said it is fine.
+- Left for next: P1.2. The phone is left on the System accent.
 
 ### 2026-10-03, Claude (fourth session)
 - Tasks: P0.2, finished. Launcher icon and launch screen pulled forward at Varun's request.
