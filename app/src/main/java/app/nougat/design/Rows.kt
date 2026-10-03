@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -55,6 +56,8 @@ fun ListRow(
     subtitle: String? = null,
     detail: String? = null,
     highlighted: Boolean = false,
+    /** False greys the row out and ignores taps, for a song Android cannot play. */
+    enabled: Boolean = true,
     spokenState: String? = null,
     actions: List<RowAction> = emptyList(),
     onTap: (() -> Unit)? = null,
@@ -68,11 +71,11 @@ fun ListRow(
     val pressed by interaction.collectIsPressedAsState()
     val large = LocalDensity.current.fontScale >= 1.5f
 
-    Box(modifier) {
+    Box(modifier.alpha(if (enabled) 1f else 0.38f)) {
         Row(
             Modifier.fillMaxWidth()
                 .combinedClickable(
-                    interaction, indication = null, enabled = onTap != null || actions.isNotEmpty(),
+                    interaction, indication = null, enabled = enabled && (onTap != null || actions.isNotEmpty()),
                     onLongClick = if (actions.isEmpty()) null else ({ menu = true }),
                     onClick = { onTap?.invoke() },
                 )

@@ -65,7 +65,13 @@ adb logcat -s Nougat
 
 The SDK is at `~/Library/Android/sdk` (not Homebrew's default root), so pass `--sdk_root=$HOME/Library/Android/sdk` to `sdkmanager`; Gradle finds it through `sdk.dir` in `local.properties`, which is not committed.
 
-Test music: `adb push "<folder>" /sdcard/Music/`. A 5,000-song test library: run `Tools/make-test-library.sh "<folder>"` from the iPhone repo (needs ffmpeg, which is installed).
+Test music: `adb push "<folder>" /sdcard/Music/`. `adb push` does not make Android read the new files' tags (copying over USB from a computer does), so ask for a scan afterwards:
+
+```bash
+adb shell content call --uri content://media/ --method scan_volume --arg external_primary
+```
+
+ A 5,000-song test library: run `Tools/make-test-library.sh "<folder>"` from the iPhone repo (needs ffmpeg, which is installed).
 
 ## Tasks
 
@@ -94,7 +100,7 @@ Every task: build, run, check its "Done when" yourself, then tick.
 
 ### Phase 2: library
 
-- [ ] **P2.1 Audio access and reading.** Ask for `READ_MEDIA_AUDIO` (Android 13 and later) or `READ_EXTERNAL_STORAGE` (older) with an explanation first, and cope with a refusal. Read `MediaStore` into the same `Track` model: path relative to the storage root, title, artist, album, duration, size, date. Formats as on iPhone, except that Android plays OGG and Opus too; WMA shows greyed out. Reference: `Library/Track.swift`, `Library/LibraryScanner.swift`.
+- [x] **P2.1 Audio access and reading.** Ask for `READ_MEDIA_AUDIO` (Android 13 and later) or `READ_EXTERNAL_STORAGE` (older) with an explanation first, and cope with a refusal. Read `MediaStore` into the same `Track` model: path relative to the storage root, title, artist, album, duration, size, date. Formats as on iPhone, except that Android plays OGG and Opus too; WMA shows greyed out. Reference: `Library/Track.swift`, `Library/LibraryScanner.swift`.
   Done when: music pushed to `/sdcard/Music` appears with its tags.
 - [ ] **P2.2 Folders, sorting, search.** Port the folder tree from paths, sorting, "everything under a folder" and search, with their tests. Keep a title-sorted list made once per change (iPhone D60). Reference: `Track.swift` (`listing`, `search`, `under`), `LibraryTests.swift`.
   Done when: the ported tests pass.

@@ -46,9 +46,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
@@ -64,6 +66,9 @@ import app.nougat.design.LocalOverHeader
 import app.nougat.design.Motion
 import app.nougat.design.NoticeHost
 import app.nougat.design.Type
+import app.nougat.library.MediaLibrary
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 
 /** A place in a tab's back stack. */
 sealed interface Screen {
@@ -90,6 +95,14 @@ val LocalNotices = staticCompositionLocalOf { SnackbarHostState() }
 @Composable
 fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val colors = LocalColors.current
+    val context = LocalContext.current
+    val library = remember { MediaLibrary(context.applicationContext) }
+    // Read the library on start and whenever the app comes back, which also picks up a permission
+    // granted in Settings. ponytail: a full re-read each time; P2.4 adds MediaStore change updates.
+    LifecycleResumeEffect(library) {
+        val job = MainScope().launch { library.refresh() }
+        onPauseOrDispose { job.cancel() }
+    }
     val notices = remember { SnackbarHostState() }
     val overHeader = remember { mutableStateOf(true) }
     var tab by rememberSaveable { mutableStateOf(Tab.Folders) }
@@ -108,7 +121,7 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
         }
     }
 
-    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader) {
+    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader, LocalLibrary provides library) {
         Box(Modifier.fillMaxSize().background(colors.paper)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {

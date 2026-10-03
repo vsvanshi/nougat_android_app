@@ -38,6 +38,7 @@ import app.nougat.design.BarIcon
 import app.nougat.design.EmptyState
 import app.nougat.design.FolderAvatar
 import app.nougat.design.HeaderAction
+import app.nougat.design.LetterTile
 import app.nougat.design.ListRow
 import app.nougat.design.LocalColors
 import app.nougat.design.LocalOverHeader
@@ -45,6 +46,8 @@ import app.nougat.design.Metrics
 import app.nougat.design.Page
 import app.nougat.design.RowAction
 import app.nougat.design.Type
+import app.nougat.library.playbackTime
+import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.launch
 
 // Stand-ins so the shell can be tried before the library (phase 2) and playlists (phase 4) exist.
@@ -54,6 +57,7 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
     val notices = LocalNotices.current
     val scope = rememberCoroutineScope()
     val name = path.substringAfterLast('/').ifEmpty { "Music" }
+    val hasAccess = LocalLibrary.current.hasAccess
     Page(
         title = name,
         subtitle = "Sample folders until the library arrives",
@@ -66,6 +70,10 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
             if (back == null) MoreMenu(push)
         },
     ) {
+        if (path.isEmpty() && !hasAccess) {
+            item { AccessRequest() }
+            return@Page
+        }
         for (child in listOf("Road Trip 2016", "Rainy Days", "Gym")) {
             item(key = child) {
                 ListRow(
@@ -97,14 +105,32 @@ private fun MoreMenu(push: (Screen) -> Unit) {
     }
 }
 
+/** Every song, sorted by title. Pull to refresh, the sort menu and playing come in P2.5 and phase 3. */
 @Composable
 fun SongsScreen(push: (Screen) -> Unit) {
+    val library = LocalLibrary.current
+    val notices = LocalNotices.current
+    val scope = rememberCoroutineScope()
+    val songs = library.tracksByTitle
     Page(
         title = "Songs",
-        subtitle = "Every song in one list",
+        subtitle = if (library.hasAccess) "${songs.size} songs" else null,
         barActions = { BarIcon(R.drawable.ic_search, "Search") { push(Screen.Search) } },
     ) {
-        item { EmptyState("No songs yet", "The library arrives in phase 2.", "Search", { push(Screen.Search) }, Modifier.fillMaxWidth()) }
+        when {
+            !library.hasAccess -> item { AccessRequest() }
+            songs.isEmpty() -> item {
+                EmptyState("No music yet", "Copy music into the Music folder over USB.", "Refresh", { scope.launch { library.refresh() } }, Modifier.fillMaxWidth())
+            }
+            else -> items(songs, key = { it.path }) { track ->
+                ListRow(
+                    track.title, subtitle = track.artist ?: "Unknown artist", detail = playbackTime(track.durationMs),
+                    enabled = track.isPlayable, spokenState = if (track.isPlayable) null else "Cannot be played",
+                    onTap = { scope.launch { notices.showSnackbar("Playback arrives in phase 3") } },
+                    leading = { LetterTile(track.title) },
+                )
+            }
+        }
     }
 }
 
