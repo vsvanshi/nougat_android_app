@@ -6,6 +6,7 @@ Read `AGENTS.md` first. The iPhone version at `/Users/varun/work/NougatMobileApp
 
 - Kotlin, Jetpack Compose, one `app` module, Gradle with the Kotlin DSL and the Gradle wrapper.
 - Material 3 Compose components for structure (scaffold, top app bar, navigation bar, dialogs, bottom sheets, menus, switch, snackbar host), themed entirely with Nougat's tokens. Our own Compose drawing for the header, rows, play button, chips, slider and visualizer, as on iPhone.
+- Navigation: AndroidX Navigation 3 (`NavDisplay`), with our own back stack per tab (decision A15).
 - Playback: AndroidX Media3 (ExoPlayer and a `MediaSessionService`). It gives the notification, lock screen, Bluetooth and car buttons, audio focus and "becoming noisy" handling.
 - Library: the system `MediaStore`, so music already on the phone appears without copying (decision A9 in `HANDOFF.md`).
 - Saved state: small JSON files in the app's files folder, using Android's built-in `org.json`, as on iPhone (`library`, `player`, `playlists`, `equalizer`). The accent goes in `SharedPreferences`.
@@ -44,6 +45,16 @@ Checked in P0.2. Gradle 9.8.0 (wrapper), Android Gradle plugin 9.4.1 with its bu
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+An optimised build, to judge animations and speed (debug builds of Compose are much slower; signed with the debug key until P8.2, and without the debug-only design gallery):
+
+```bash
+./gradlew assembleRelease
+```
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
 ```bash
 adb shell am start -n in.varunsuryawanshi.nougat/app.nougat.MainActivity
 ```
@@ -78,7 +89,7 @@ Every task: build, run, check its "Done when" yourself, then tick.
   Done when: the gallery shows every style and icon.
 - [x] **P1.3 Components.** Header page (the header is the first list item, the header colour fills behind the status bar, the bar title fades in once the header has left the screen; see iPhone decisions D24, D28, D54), rows with `more_vert` and long-press menu, play button, filled and text buttons, chip, slider (horizontal and vertical, adjustable with TalkBack), snackbar with an action, empty state, toggle icon. Reference: `Page.swift`, `Components/*.swift`, `design/preview.html`.
   Done when: the gallery matches the iPhone preview in light and dark.
-- [ ] **P1.4 App shell.** Bottom navigation (Folders, Songs, Playlists) with a back stack per tab, a search icon in the top app bar (decision A11), the mini player above the navigation bar, a Now playing screen; edge to edge; system and predictive back. Reference: `AppShell.swift`.
+- [x] **P1.4 App shell.** Bottom navigation (Folders, Songs, Playlists) with a back stack per tab, a search icon in the top app bar (decision A11), the mini player above the navigation bar, a Now playing screen; edge to edge; system and predictive back. Reference: `AppShell.swift`.
   Done when: the Back and Edge-to-edge rows of `DESIGN.md` section 4 pass on a device.
 
 ### Phase 2: library

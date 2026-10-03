@@ -1,0 +1,265 @@
+package app.nougat.screens
+
+import android.app.Activity
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.core.view.WindowCompat
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
+import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.DirectNavigationEventInput
+import androidx.navigationevent.NavigationEvent
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import app.nougat.R
+import app.nougat.design.Accent
+import app.nougat.design.Gallery
+import app.nougat.design.LocalAccent
+import app.nougat.design.LocalColors
+import app.nougat.design.LocalOverHeader
+import app.nougat.design.Motion
+import app.nougat.design.NoticeHost
+import app.nougat.design.Type
+
+/** A place in a tab's back stack. */
+sealed interface Screen {
+    data class Folder(val path: String) : Screen
+    data object Songs : Screen
+    data object Playlists : Screen
+    data object Search : Screen
+    data object Gallery : Screen
+}
+
+enum class Tab(val label: String, @DrawableRes val icon: Int, val root: Screen) {
+    Folders("Folders", R.drawable.ic_folder, Screen.Folder("")),
+    Songs("Songs", R.drawable.ic_music_note, Screen.Songs),
+    Playlists("Playlists", R.drawable.ic_queue_music, Screen.Playlists),
+}
+
+/** Snackbars for the whole app; they float above the mini player. */
+val LocalNotices = staticCompositionLocalOf { SnackbarHostState() }
+
+/**
+ * The app's chrome: bottom navigation with a back stack per tab, the mini player above it, and
+ * Now playing over everything. System back pops the current tab; from a tab's root it leaves the app.
+ */
+@Composable
+fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
+    val colors = LocalColors.current
+    val notices = remember { SnackbarHostState() }
+    val overHeader = remember { mutableStateOf(true) }
+    var tab by rememberSaveable { mutableStateOf(Tab.Folders) }
+    val stacks = rememberSaveable(saver = StacksSaver) { Tab.entries.map { mutableStateListOf(it.root) } }
+    var nowPlaying by rememberSaveable { mutableStateOf(false) }
+    val tabs = rememberSaveableStateHolder()
+    val stack = stacks[tab.ordinal]
+
+    // Status-bar icons: light over the header colour (and over Now playing's cover), else the theme's.
+    val dark = isSystemInDarkTheme()
+    val view = LocalView.current
+    LaunchedEffect(dark, nowPlaying) {
+        val window = (view.context as Activity).window
+        snapshotFlow { overHeader.value }.collect { over ->
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !(over || nowPlaying) && !dark
+        }
+    }
+
+    CompositionLocalProvider(LocalNotices provides notices, LocalOverHeader provides overHeader) {
+        Box(Modifier.fillMaxSize().background(colors.paper)) {
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f)) {
+                    tabs.SaveableStateProvider(tab.name) {
+                        SharedTransitionLayout(Modifier.swipeBack(stack.size > 1)) {
+                            CompositionLocalProvider(LocalSharedScope provides this) {
+                                NavDisplay(
+                                    backStack = stack,
+                                    onBack = { stack.removeLastOrNull() },
+                                    sharedTransitionScope = this,
+                                    transitionSpec = { push },
+                                    popTransitionSpec = { pop },
+                                    predictivePopTransitionSpec = { pop },
+                                    entryProvider = entryProvider {
+                                        val push = { s: Screen -> stack.add(s); Unit }
+                                        val pop = { stack.removeLastOrNull(); Unit }
+                                        // Decided by the entry, not the stack size, so the page underneath keeps its bar while another slides in.
+                                        entry<Screen.Folder> { FolderScreen(it.path, push, if (it.path.isEmpty()) null else pop) }
+                                        entry<Screen.Songs> { SongsScreen(push) }
+                                        entry<Screen.Playlists> { PlaylistsScreen(push) }
+                                        entry<Screen.Search> { SearchScreen(pop) }
+                                        entry<Screen.Gallery> { Gallery(accent, onAccent, pop) }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    NoticeHost(notices, Modifier.align(Alignment.BottomCenter))
+                }
+                MiniPlayer(onOpen = { nowPlaying = true })
+                NavigationBar(containerColor = colors.surface) {
+                    for (t in Tab.entries) {
+                        NavigationBarItem(
+                            selected = t == tab,
+                            // Tapping the tab that is showing goes back to its root.
+                            onClick = { if (t == tab) stack.removeRange(1, stack.size) else tab = t },
+                            icon = { Icon(painterResource(t.icon), contentDescription = null) },
+                            label = { Text(t.label, style = Type.caption) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = LocalAccent.current.text, selectedTextColor = LocalAccent.current.text,
+                                unselectedIconColor = colors.ink2, unselectedTextColor = colors.ink2,
+                                indicatorColor = Color.Transparent,
+                            ),
+                        )
+                    }
+                }
+            }
+            AnimatedVisibility(
+                nowPlaying,
+                enter = slideInVertically(tween(Motion.entering, easing = Motion.easing)) { it },
+                exit = slideOutVertically(tween(Motion.leaving, easing = Motion.easing)) { it },
+            ) {
+                NowPlayingScreen(onClose = { nowPlaying = false })
+            }
+        }
+    }
+}
+
+/**
+ * Opening a page slides it in from the right over the old one, which drifts a quarter of the way
+ * left. Going back is the reverse, with the old page underneath; a back gesture or a swipe drives it.
+ */
+private val push = ContentTransform(
+    slideInHorizontally(tween(Motion.standard, easing = Motion.easing)) { it },
+    slideOutHorizontally(tween(Motion.standard, easing = Motion.easing)) { -it / 4 },
+)
+private val pop = ContentTransform(
+    slideInHorizontally(tween(Motion.standard, easing = Motion.easing)) { -it / 4 },
+    slideOutHorizontally(tween(Motion.standard, easing = Motion.easing)) { it },
+    targetContentZIndex = -1f,
+)
+
+val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
+
+/**
+ * Marks a title that flies between screens: a folder's name in its row grows into the large title
+ * of the folder's page, and shrinks back on the way out. Rows and headers with the same key pair up.
+ */
+@Composable
+fun Modifier.sharedTitle(key: String): Modifier {
+    val shared = LocalSharedScope.current ?: return this
+    val scope = LocalNavAnimatedContentScope.current
+    return with(shared) {
+        sharedBounds(
+            rememberSharedContentState(key), scope,
+            enter = fadeIn(tween(0)), exit = fadeOut(tween(0)),
+            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.FillWidth, Alignment.CenterStart),
+        )
+    }
+}
+
+/**
+ * Drag a pushed page to the right, from anywhere on it, to go back. The drag is fed to the system's
+ * back events, so it runs the same animation as the predictive back gesture and can be let go halfway.
+ */
+@Composable
+private fun Modifier.swipeBack(enabled: Boolean): Modifier {
+    val dispatcher = LocalNavigationEventDispatcherOwner.current?.navigationEventDispatcher ?: return this
+    val input = remember { DirectNavigationEventInput() }
+    DisposableEffect(dispatcher) {
+        dispatcher.addInput(input)
+        onDispose { dispatcher.removeInput(input) }
+    }
+    if (!enabled) return this
+    return pointerInput(Unit) {
+        var dx = 0f
+        var started = false
+        val velocity = VelocityTracker()
+        fun event(x: Float, y: Float) = NavigationEvent(NavigationEvent.EDGE_LEFT, (dx / size.width).coerceIn(0f, 1f), x, y)
+        detectHorizontalDragGestures(
+            onDragStart = { dx = 0f; started = false; velocity.resetTracking() },
+            onDragEnd = {
+                if (started) {
+                    if (dx > size.width / 3f || velocity.calculateVelocity().x > 1500f) input.backCompleted() else input.backCancelled()
+                }
+                started = false
+            },
+            onDragCancel = { if (started) input.backCancelled(); started = false },
+        ) { change, amount ->
+            velocity.addPosition(change.uptimeMillis, change.position)
+            dx = (dx + amount).coerceAtLeast(0f)
+            if (!started && dx > 0f) {
+                input.backStarted(event(change.position.x, change.position.y))
+                started = true
+            }
+            if (started) {
+                input.backProgressed(event(change.position.x, change.position.y))
+                change.consume()
+            }
+        }
+    }
+}
+
+private fun Screen.encode() = when (this) {
+    is Screen.Folder -> "folder:$path"
+    Screen.Songs -> "songs"
+    Screen.Playlists -> "playlists"
+    Screen.Search -> "search"
+    Screen.Gallery -> "gallery"
+}
+
+private fun decode(s: String) = when (s) {
+    "songs" -> Screen.Songs
+    "playlists" -> Screen.Playlists
+    "search" -> Screen.Search
+    "gallery" -> Screen.Gallery
+    else -> Screen.Folder(s.removePrefix("folder:"))
+}
+
+/** Keeps every tab's back stack across a configuration change or the process being stopped. */
+private val StacksSaver = Saver<List<SnapshotStateList<Screen>>, ArrayList<ArrayList<String>>>(
+    save = { stacks -> ArrayList(stacks.map { stack -> ArrayList(stack.map { it.encode() }) }) },
+    restore = { saved -> saved.map { stack -> mutableStateListOf<Screen>().apply { addAll(stack.map(::decode)) } } },
+)

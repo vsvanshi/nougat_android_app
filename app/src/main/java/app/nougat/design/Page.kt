@@ -1,12 +1,10 @@
 package app.nougat.design
 
-import android.app.Activity
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -28,22 +25,23 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import app.nougat.R
 
 /** The round button on a page header's bottom edge. `label` is what TalkBack reads, such as "Play folder". */
@@ -67,7 +65,8 @@ fun Page(
     firstSubheader: String? = null,
     navigationIcon: @Composable () -> Unit = {},
     barActions: @Composable RowScope.() -> Unit = {},
-    bottomPadding: PaddingValues = WindowInsets.navigationBars.asPaddingValues(),
+    bottomPadding: PaddingValues = PaddingValues(),
+    titleModifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit,
 ) {
     val colors = LocalColors.current
@@ -86,12 +85,8 @@ fun Page(
     val barColor by animateColorAsState(if (solid) colors.paper else colors.header, tween(Motion.standard, easing = Motion.easing))
     val chrome = if (solid) colors.ink else colors.onHeader
 
-    val dark = isSystemInDarkTheme()
-    val view = LocalView.current
-    SideEffect {
-        val window = (view.context as? Activity)?.window ?: return@SideEffect
-        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = solid && !dark
-    }
+    val overHeader = LocalOverHeader.current
+    SideEffect { overHeader.value = !solid }
 
     val strip = when {
         firstSubheader != null -> Metrics.subheader
@@ -104,7 +99,7 @@ fun Page(
             item(key = "header") {
                 Box {
                     Column {
-                        PageHeader(title, subtitle, Modifier.onSizeChanged { headerHeight = it.height })
+                        PageHeader(title, subtitle, Modifier.onSizeChanged { headerHeight = it.height }, titleModifier)
                         Box(Modifier.fillMaxWidth().height(strip)) {
                             if (firstSubheader != null) Subheader(firstSubheader)
                         }
@@ -133,12 +128,18 @@ fun Page(
     }
 }
 
+/**
+ * Whether the screen in front has the header colour behind the status bar, so its icons must be light.
+ * Pages write it; the app shell applies it to the window.
+ */
+val LocalOverHeader = staticCompositionLocalOf<MutableState<Boolean>> { mutableStateOf(true) }
+
 /** Material's small top app bar height. */
 val BarHeight = 64.dp
 
 /** The dark block: large title and subtitle, starting under the status bar and the top bar. */
 @Composable
-fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier) {
+fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier, titleModifier: Modifier = Modifier) {
     val colors = LocalColors.current
     Column(
         modifier.fillMaxWidth().background(colors.header)
@@ -147,7 +148,7 @@ fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier) 
             .padding(horizontal = Metrics.margin)
             .semantics(mergeDescendants = true) { heading() },
     ) {
-        Text(title, style = Type.largeTitle, color = colors.onHeader)
+        Text(title, titleModifier, style = Type.largeTitle, color = colors.onHeader)
         if (subtitle != null) Text(subtitle, style = Type.rowTitle, color = colors.onHeader2)
     }
 }

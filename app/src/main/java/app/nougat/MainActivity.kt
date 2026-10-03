@@ -12,8 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.nougat.design.Accent
-import app.nougat.design.Gallery
 import app.nougat.design.NougatTheme
+import app.nougat.screens.AppShell
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,8 +27,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var accent by remember { mutableStateOf(Accent.load(this)) }
             NougatTheme(accent) {
-                // Placeholder until the app shell (P1.4) arrives.
-                Gallery(accent) { accent = it; Accent.save(this, it) }
+                AppShell(accent) { accent = it; Accent.save(this, it) }
             }
         }
     }

@@ -15,6 +15,14 @@ android {
         versionName = "0.1"
     }
 
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            // ponytail: debug key until the release keystore of P8.2; lets an optimised build go on the phone.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -30,5 +38,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.core:core-splashscreen:1.2.0")
+    implementation("androidx.navigation3:navigation3-ui:1.2.0")
     testImplementation("junit:junit:4.13.2")
 }

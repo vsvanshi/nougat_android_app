@@ -9,21 +9,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,28 +39,29 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nougat.R
-import kotlinx.coroutines.launch
+import app.nougat.screens.LocalNotices
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /**
  * Debug catalogue of the design system, the Android counterpart of the iPhone Gallery.swift.
  * It is itself a header page. Every swatch shows its light and dark value side by side.
  */
 @Composable
-fun Gallery(accent: Accent, onAccent: (Accent) -> Unit) {
+fun Gallery(accent: Accent, onAccent: (Accent) -> Unit, onBack: () -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
     val spec = accent.spec(context)
-    val notices = remember { SnackbarHostState() }
+    val notices = LocalNotices.current
     val scope = rememberCoroutineScope()
     fun notify(message: String, action: String? = null) = scope.launch { notices.showSnackbar(message, action) }
 
-    Box(Modifier.fillMaxSize()) {
-        Page(
+    Page(
             title = "Design gallery",
             subtitle = "Every token and component",
             action = HeaderAction("Show a snackbar") { notify("Added to Sunday Slow", "Undo") },
             firstSubheader = "Accent",
+            navigationIcon = { BarIcon(R.drawable.ic_arrow_back, "Back", onBack) },
         ) {
             item { AccentPicker(accent, onAccent, context) }
             item { Subheader("Components") }
@@ -94,8 +90,6 @@ fun Gallery(accent: Accent, onAccent: (Accent) -> Unit) {
                 SwatchRow(light.first, light.second, dark.second)
             }
         }
-        NoticeHost(notices, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars))
-    }
 }
 
 @Composable

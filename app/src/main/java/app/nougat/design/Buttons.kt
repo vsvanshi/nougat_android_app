@@ -13,6 +13,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -152,4 +153,16 @@ fun Toggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modif
             uncheckedTrackColor = colors.fill, uncheckedThumbColor = colors.ink3, uncheckedBorderColor = colors.ink3,
         ),
     )
+}
+
+/** An icon button for a top app bar; it takes the bar's icon colour. */
+@Composable
+fun BarIcon(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(Metrics.touchTarget).pressable(CircleShape, onClick, overlay = LocalContentColor.current)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(icon), contentDescription = null)
+    }
 }

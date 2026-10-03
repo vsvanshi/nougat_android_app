@@ -6,9 +6,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -38,7 +38,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import app.nougat.R
 
 /** One entry of a row's menu. The same list fills the `more_vert` menu, the long-press menu and TalkBack's actions. */
@@ -60,6 +59,7 @@ fun ListRow(
     actions: List<RowAction> = emptyList(),
     onTap: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
+    titleModifier: Modifier = Modifier,
 ) {
     val colors = LocalColors.current
     val accent = LocalAccent.current
@@ -92,7 +92,7 @@ fun ListRow(
             }
             Column(Modifier.weight(1f)) {
                 val lines = if (large) 3 else 1
-                Text(title, style = Type.rowTitle, color = if (highlighted) accent.text else colors.ink, maxLines = lines, overflow = TextOverflow.Ellipsis)
+                Text(title, titleModifier, style = Type.rowTitle, color = if (highlighted) accent.text else colors.ink, maxLines = lines, overflow = TextOverflow.Ellipsis)
                 if (subtitle != null) Text(subtitle, style = Type.body, color = colors.ink2, maxLines = lines, overflow = TextOverflow.Ellipsis)
             }
             if (detail != null) Text(detail, style = Type.caption, color = colors.ink2, modifier = Modifier.padding(start = Metrics.grid))
