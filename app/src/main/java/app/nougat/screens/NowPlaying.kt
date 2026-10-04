@@ -297,7 +297,7 @@ private fun ColumnScope.Details(track: Track, onEqualizer: () -> Unit) {
     val equalizer = LocalEqualizer.current
     // Scrolls rather than clips at the largest text sizes; the equalizer shortcut stays at the bottom.
     Column(Modifier.weight(1f)) {
-    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Metrics.margin)) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Metrics.margin)) {
         Row(Modifier.padding(top = Metrics.margin), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
                 Text(track.title, style = Type.title, color = colors.ink, maxLines = 2)
@@ -327,7 +327,6 @@ private fun ColumnScope.Details(track: Track, onEqualizer: () -> Unit) {
             )
         }
     }
-        Spacer(Modifier.weight(1f).height(Metrics.margin))
         // The shortcut names the preset in use, or just says "Equalizer" when it is off.
         Row(
             Modifier.align(Alignment.CenterHorizontally).padding(bottom = Metrics.grid).navigationBarsPadding()

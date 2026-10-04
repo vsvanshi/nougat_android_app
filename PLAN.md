@@ -159,5 +159,5 @@ Every task: build, run, check its "Done when" yourself, then tick.
 ### Phase 8: release
 
 - [x] **P8.1 README.** What it is, how to add music, how to build.
-- [ ] **P8.2 Signed APK.** A release keystore kept outside the repository (`~/.nougat-release/`, made 2026-10-04); a signed APK on GitHub Releases (decision A12).
+- [x] **P8.2 Signed APK.** A release keystore kept outside the repository (`~/.nougat-release/`, made 2026-10-04); a signed APK on GitHub Releases (decision A12).
 - [ ] **P8.3 Play Store.** Not planned (decision A12). If Varun changes his mind: needs his Play developer account, and the listing follows decision A6.
