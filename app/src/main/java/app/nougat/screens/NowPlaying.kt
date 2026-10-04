@@ -123,8 +123,10 @@ fun MiniPlayer(onOpen: () -> Unit) {
     val colors = LocalColors.current
     val player = LocalPlayer.current
     val track = player.current ?: return
+    Column(Modifier.depth(Depth.One, RoundedCornerShape(0.dp)).background(colors.surface).fillMaxWidth()) {
+    MiniProgress(track.path)
     Row(
-        Modifier.depth(Depth.One, RoundedCornerShape(0.dp)).background(colors.surface).fillMaxWidth().heightIn(min = 64.dp).height(IntrinsicSize.Min),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -140,6 +142,28 @@ fun MiniPlayer(onOpen: () -> Unit) {
         }
         MiniButton(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow, if (player.isPlaying) "Pause" else "Play", 34.dp) { player.toggle() }
         MiniButton(R.drawable.ic_skip_next, "Next", 30.dp) { player.next() }
+    }
+    }
+}
+
+/**
+ * How far through the song, as a 2 dp line along the mini player's top edge: `accentText` on
+ * `hairline`. It moves twice a second while playing. TalkBack hears the position on Now playing.
+ */
+@Composable
+private fun MiniProgress(path: String) {
+    val player = LocalPlayer.current
+    val colors = LocalColors.current
+    val accent = LocalAccent.current
+    var fraction by remember { mutableFloatStateOf(player.roughProgress) }
+    LaunchedEffect(path, player.isPlaying) {
+        do {
+            fraction = player.roughProgress.coerceIn(0f, 1f)
+            delay(500)
+        } while (player.isPlaying)
+    }
+    Box(Modifier.fillMaxWidth().height(2.dp).background(colors.hairline).clearAndSetSemantics {}) {
+        Box(Modifier.fillMaxWidth(fraction).height(2.dp).background(accent.text))
     }
 }
 

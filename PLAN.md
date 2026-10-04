@@ -161,3 +161,5 @@ Every task: build, run, check its "Done when" yourself, then tick.
 - [x] **P8.1 README.** What it is, how to add music, how to build.
 - [x] **P8.2 Signed APK.** A release keystore kept outside the repository (`~/.nougat-release/`, made 2026-10-04); a signed APK on GitHub Releases (decision A12).
 - [ ] **P8.3 Play Store.** Not planned (decision A12). If Varun changes his mind: needs his Play developer account, and the listing follows decision A6.
+- [ ] **P8.4 IzzyOnDroid** (Varun, 2026-10-04; decision A23). Public repository, release APKs on GitHub Releases signed with the release key, store text and screenshots in `fastlane/metadata/android/en-US`, no dependency block in the APK; an inclusion request on IzzyOnDroid's GitLab, sent by Varun from his account.
+  Done when: Nougat installs from the IzzyOnDroid repository in the F-Droid app.

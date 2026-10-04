@@ -1,0 +1,19 @@
+Nougat is a free, open-source music player for the music files already on your phone. No account, no ads, no subscription, and nothing locked away.
+
+<b>Folders as you made them.</b> Your folder tree is the library. Play a whole folder, subfolders included, or shuffle it.
+
+<b>Songs and search.</b> Every song in one list, by name or date added, and one search across songs, artists, albums, folders and playlists.
+
+<b>Playlists.</b> Create, rename, reorder and delete them. Add a song from its menu, by swiping it, or from Now playing; add a whole folder at once. A song is never added twice.
+
+<b>Equalizer.</b> Five bands with presets (Flat, Bass boost, Rock, Vocal), a preamp, and your own saved presets.
+
+<b>Plays like a system app.</b> Notification and lock-screen controls, headphone, Bluetooth and car buttons, background playback, pausing when headphones are unplugged and for calls. It remembers where you were.
+
+<b>A visualizer</b> on Now playing that follows the music, in six looks: spectrum, LED meter, oscilloscope, ring, cassette and record.
+
+<b>Your look.</b> Light and dark theme and six accent colours, plus one that follows your wallpaper on Android 12 and later.
+
+<b>Nothing is deleted.</b> Hiding a folder or song only stops Nougat showing it; Settings shows hidden ones again.
+
+Formats: MP3, M4A and AAC, FLAC, OGG, Opus, WAV and more. Nougat reads your phone's media library, so music copied onto the phone appears by itself.

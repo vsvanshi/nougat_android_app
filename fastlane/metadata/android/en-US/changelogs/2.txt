@@ -1,0 +1,2 @@
+- A progress line on the mini player
+- Now playing's controls are no longer cut off

@@ -13,8 +13,8 @@ android {
         applicationId = "in.varunsuryawanshi.nougat"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     // The release key lives outside the repository (P8.2). Without it, release builds use the debug key.
@@ -42,6 +42,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    // No encrypted dependency list in the APK: F-Droid and IzzyOnDroid cannot read it and flag it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     buildFeatures {
