@@ -153,11 +153,11 @@ Every task: build, run, check its "Done when" yourself, then tick.
   Done when: every row is recorded as passing in `HANDOFF.md`.
 - [ ] **P7.3 Accessibility and dark.** TalkBack labels, values and custom actions; the largest font and display size; animations removed; dark theme.
   Done when: the whole app can be used with TalkBack alone, and every screen is reviewed in both themes.
-- [ ] **P7.4 Scale check.** 5,000 songs from the test library.
+- [x] **P7.4 Scale check.** 5,000 songs from the test library.
   Done when: the first read does not block the interface and scrolling stays smooth.
 
 ### Phase 8: release
 
-- [ ] **P8.1 README.** What it is, how to add music, how to build.
-- [ ] **P8.2 Signed APK.** A release keystore kept outside the repository; a signed APK on GitHub Releases (decision A12).
+- [x] **P8.1 README.** What it is, how to add music, how to build.
+- [ ] **P8.2 Signed APK.** A release keystore kept outside the repository (`~/.nougat-release/`, made 2026-10-04); a signed APK on GitHub Releases (decision A12).
 - [ ] **P8.3 Play Store.** Not planned (decision A12). If Varun changes his mind: needs his Play developer account, and the listing follows decision A6.

@@ -57,7 +57,12 @@ import app.nougat.design.Page
 import app.nougat.design.RowAction
 import app.nougat.design.Subheader
 import app.nougat.design.Type
+import app.nougat.library.FolderListing
 import app.nougat.library.FolderSummary
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import app.nougat.library.LibrarySort
 import app.nougat.library.Track
 import app.nougat.library.count
@@ -145,7 +150,7 @@ private fun FolderRow(folder: FolderSummary, push: (Screen) -> Unit, actions: Li
 fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
     val library = LocalLibrary.current
     val hide = rememberHide()
-    val folder = if (path.isEmpty()) library.tracks.commonFolder() else path
+    val folder = remember(library.tracks, path) { if (path.isEmpty()) library.tracks.commonFolder() else path }
     val listing = remember(library.tracks, folder, library.folderSort) { library.tracks.listing(folder, library.folderSort) }
     val player = LocalPlayer.current
     // The play button takes everything in the folder, subfolders included.
@@ -176,7 +181,7 @@ fun FolderScreen(path: String, push: (Screen) -> Unit, back: (() -> Unit)?) {
                     // Every song in this folder and its subfolders.
                     MenuItem("Add all to playlist") { close(); addTo(everything.map { it.path }) }
                 }
-                if (path.isEmpty() && library.hidden.isNotEmpty()) MenuItem("Hidden folders and songs") { close(); push(Screen.Hidden) }
+                if (path.isEmpty()) MenuItem("Settings") { close(); push(Screen.Settings) }
                 val debug = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
                 if (path.isEmpty() && debug) MenuItem("Design gallery") { close(); push(Screen.Gallery) }
             }
@@ -272,7 +277,11 @@ fun SearchScreen(push: (Screen) -> Unit, back: () -> Unit) {
     val overHeader = LocalOverHeader.current
     SideEffect { overHeader.value = false }
     var query by rememberSaveable { mutableStateOf("") }
-    val results = remember(library.tracks, query) { library.tracks.search(query) }
+    // Searched off the main thread, once typing pauses, so thousands of songs do not slow the keyboard.
+    val results by produceState(FolderListing(), library.tracks, query) {
+        if (value.tracks.isNotEmpty() || value.folders.isNotEmpty()) delay(150)
+        value = withContext(Dispatchers.Default) { library.tracks.search(query) }
+    }
     val playlists = LocalPlaylists.current
     val lists = remember(playlists.all, query) {
         val term = app.nougat.library.folded(query.trim())

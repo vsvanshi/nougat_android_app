@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.nougat.R
+import app.nougat.screens.AccentPicker
 import app.nougat.screens.LocalNotices
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -157,24 +158,6 @@ private val icons = listOf(
     R.drawable.ic_repeat_one, R.drawable.ic_playlist_add, R.drawable.ic_equalizer, R.drawable.ic_add,
     R.drawable.ic_check, R.drawable.ic_library_music,
 )
-
-/** The accents as swatches; the chosen one shows a check. */
-@Composable
-private fun AccentPicker(selected: Accent, onSelect: (Accent) -> Unit, context: Context) {
-    Row(Modifier.padding(horizontal = Metrics.margin), horizontalArrangement = Arrangement.spacedBy(Metrics.grid)) {
-        for (option in Accent.available) {
-            val c = option.spec(context).colors(dark = false)
-            Box(
-                Modifier.size(40.dp).background(c.accent, CircleShape)
-                    .pressable(CircleShape, { onSelect(option) }, role = Role.RadioButton)
-                    .semantics { contentDescription = option.name; this.selected = option == selected },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (option == selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = c.onAccent)
-            }
-        }
-    }
-}
 
 @Composable
 private fun SwatchRow(name: String, light: Color, dark: Color) {

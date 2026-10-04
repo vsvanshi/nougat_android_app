@@ -35,7 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import app.nougat.R
@@ -59,6 +63,13 @@ val LocalEqualizer = staticCompositionLocalOf<EqualizerSettings> { error("No equ
 private val bandNames = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
 private val spokenBandNames = listOf("60 hertz", "230 hertz", "910 hertz", "3.6 kilohertz", "14 kilohertz")
 private val sliderHeight = 240.dp
+
+/** The scale and band names sit in narrow columns, so they stop growing a little above normal size (iPhone D59). */
+@Composable
+private fun cappedCaption(): TextStyle {
+    val scale = LocalDensity.current.fontScale
+    return Type.caption.copy(fontSize = Type.caption.fontSize * (minOf(scale, 1.3f) / scale))
+}
 
 private fun decibels(value: Double, spoken: Boolean): String {
     val number = if (value == 0.0) "0" else "%+.1f".format(value).removeSuffix(".0")
@@ -92,15 +103,21 @@ fun EqualizerScreen(onBack: () -> Unit) {
             }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = Metrics.margin).height(Metrics.rowTwoLine), verticalAlignment = Alignment.CenterVertically) {
+            // One switch for TalkBack: the label, the state and the toggle together.
+            Row(
+                Modifier.fillMaxWidth().toggleable(state.isOn, role = Role.Switch) { on -> equalizer.update { it.copy(isOn = on) } }
+                    .padding(horizontal = Metrics.margin).height(Metrics.rowTwoLine),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text("Equalizer", style = Type.rowTitle, color = colors.ink)
                     Text(if (state.isOn) "On, ${state.presetName}" else "Off", style = Type.body, color = colors.ink2)
                 }
-                Toggle(state.isOn, { on -> equalizer.update { it.copy(isOn = on) } })
+                Toggle(state.isOn, null)
             }
             Box {
-                Column(Modifier.alpha(if (state.isOn) 1f else 0.5f)) {
+                // Off: dimmed, and out of TalkBack's reach, like the iPhone's disabled controls.
+                Column(Modifier.alpha(if (state.isOn) 1f else 0.5f).then(if (state.isOn) Modifier else Modifier.clearAndSetSemantics {})) {
                     Presets(state, equalizer)
                     Bands(state, ::setGain) { equalizer.persist() }
                     Subheader("Preamp", Modifier.padding(top = Metrics.grid))
@@ -164,7 +181,7 @@ private fun Bands(state: EqualizerState, setGain: (Double, Int) -> Unit, done: (
         Box(Modifier.padding(start = 32.dp, top = sliderHeight / 2).fillMaxWidth().height(1.dp).background(colors.hairline))
         Row {
             Column(Modifier.width(32.dp).height(sliderHeight).clearAndSetSemantics {}, verticalArrangement = Arrangement.SpaceBetween) {
-                for (mark in listOf("+15", "0", "-15")) Text(mark, style = Type.caption, color = colors.ink2, maxLines = 1)
+                for (mark in listOf("+15", "0", "-15")) Text(mark, style = cappedCaption(), color = colors.ink2, maxLines = 1)
             }
             for (band in state.gains.indices) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -174,7 +191,7 @@ private fun Bands(state: EqualizerState, setGain: (Double, Int) -> Unit, done: (
                         vertical = true, origin = 0f, onEditingChanged = { if (!it) done() },
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text(bandNames[band], style = Type.caption, color = colors.ink2, maxLines = 1, modifier = Modifier.clearAndSetSemantics {})
+                    Text(bandNames[band], style = cappedCaption(), color = colors.ink2, maxLines = 1, modifier = Modifier.clearAndSetSemantics {})
                 }
             }
         }

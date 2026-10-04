@@ -7,16 +7,37 @@ Read `AGENTS.md` first. Keep this file short and true: rewrite "Current state" e
 | | |
 |---|---|
 | Updated | 2026-10-03 by Claude |
-| Phase | 7, finish. Phases 4 to 6 done: Varun tested them on his phone and reported no problems (2026-10-03). TalkBack on the equalizer was not mentioned; it is covered again in P7.3. |
-| Next task | P7.1: Settings (accent swatches, Hidden link, version, licences). |
+| Phase | 7 and 8. P7.4 and P8.1 done. P7.1 to P7.3 built, waiting for Varun to confirm on his phone (he asked to check them himself). P8.2: the APK is signed; the GitHub release waits for Varun's go-ahead to push and publish. |
+| Next task | Varun confirms P7.1 to P7.3 (see the Contract audit below); with his go-ahead, push and publish v1.0 on GitHub Releases (P8.2). Predictive back with gesture navigation is still to be checked at the end. |
 | Code | `design/` (tokens, type, sizes, components, `Page` with pull to refresh, gallery), `screens/AppShell.kt` (tabs, back stacks, transitions, swipe back, library and artwork for the whole app), `screens/LibraryScreens.kt` (Folders, Songs, Search, Hidden, `TrackRow`), `screens/NowPlaying.kt` (mini player, Now playing, Queue), `screens/Placeholders.kt` (Playlists until phase 4), `screens/Access.kt`, `screens/TrackThumbnail.kt`, `library/` (`Track`, `MediaLibrary` following MediaStore with hiding and sort settings, `Listing` with folder tree, search and name order, `ArtworkStore`). `App.kt` (one library, artwork store and player per process), `playback/PlayQueue.kt`, `playback/Player.kt` (ExoPlayer, Nougat's queue, saved state in `files/player.json`), `playback/PlaybackService.kt` (Media3 session service). 21 JVM tests. Phases 4 to 6: `playlists/` (`Playlists` store, `PlaylistFile` JSON), `screens/PlaylistScreens.kt` (Playlists tab, playlist screen, song picker, add-to-playlist sheet, name dialog, success haptic), `equalizer/` (`EqualizerState`, `EqualizerSettings` saving `equalizer.json`, `SoundEffects`), `screens/EqualizerScreen.kt`, `visualizer/` (`Spectrum`, `SpectrumAnalyzer` with its own FFT, `Visualizer` with six looks), `design/Reorder.kt` (drag to reorder, used by Queue and playlists). 30 JVM tests; lint has no errors. |
 | Git | Repository on `main`, remote `origin` = `https://github.com/vsvanshi/nougat_android_app.git`, private. Commit or push only when Varun says. |
 | Tools on the Mac | JDK 17 (Zulu and JetBrains), ffmpeg, Homebrew. Android command-line tools from Homebrew (`sdkmanager` 22.0 on the path). SDK at `~/Library/Android/sdk` with `platforms;android-37.0`, `build-tools;37.0.0`, `platform-tools` 37.0.1 (about 380 MB); SDK licences accepted with Varun's agreement. `adb` on the path is Homebrew's, same version as the SDK one. No emulator (A7). |
 | Test phone | Samsung Galaxy A07, Android 16 (API 36), One UI 8.5, arm64, 720 x 1600 at 300 dpi (about 384 dp wide, a narrow screen). USB debugging is on and this Mac is authorised; it shows as `device` in `adb devices`. |
 | Known broken | Nothing. Two harmless build warnings: `android.enableJetifier=true` comes from Varun's own `~/.gradle/gradle.properties` (it overrides the project's file, so it cannot be turned off here; do not edit his file without asking), and `Configuration.setVisible` comes from inside the Android Gradle plugin. |
+| Release key | `~/.nougat-release/nougat-release.jks` and `keystore.properties` (password inside; both chmod 600), made by Claude on 2026-10-04. Never commit them. Varun should back the folder up somewhere safe: without it no update to the released app can be signed. Certificate SHA-256 `47:E7:05:14:99:34:B9:F0:0D:05:2A:F1:46:AB:C1:F2:D9:99:ED:30:41:73:8D:35:7A:94:07:0C:78:88:70:F9`. Release builds use it when the file exists, else the debug key. |
+| App on Varun's phone | An optimised build signed with the **debug** key. A release-key APK cannot install over it: Android would need the old one uninstalled first, which deletes Nougat's data (playlists, equalizer, hidden list, position). Ask Varun before doing that. |
 | Test music on the phone | `/sdcard/Music/Nougat Test/` (eight short tones in MP3, M4A, FLAC, OGG, Opus, untagged MP3 and WMA, nested folders; Kite Season has embedded art; Rainy Days has `cover.jpg` and `AlbumArt.jpg`), pushed by Claude on 2026-10-03. The two images made Google Photos offer to back up "Rainy Days"; Varun should decline. Remove all with `adb shell rm -rf "/sdcard/Music/Nougat Test"` and the scan command in `PLAN.md`. The phone has one song of its own ("Over the Horizon"). |
 | Real music on the phone | `/sdcard/Music/3. Pahari/` (10 songs, 66 MB), copied at Varun's request on 2026-10-03 from his external drive (`/Volumes/Extreme/Music/3. Pahari`). Varun's own music: never delete it. Most files have no artist tag. |
 | Gradle download | The wrapper's own Java download of the Gradle zip times out on the GitHub redirect on this Mac, though Gradle itself reaches Google's and Maven's repositories fine. Gradle 9.8.0 was fetched with `curl`, checked against its published SHA-256 and placed in `~/.gradle/wrapper/dists`. A future Gradle upgrade will need the same. |
+
+## Contract audit (P7.2)
+
+`DESIGN.md` section 4, on Varun's Galaxy A07 (Android 16). "Agent" means checked by Claude over `adb`; "Varun" means he tested it.
+
+| Behaviour | Status |
+|---|---|
+| Back | Passes for the Back button everywhere and for leaving at a tab's root (agent). Predictive back gesture: to check with gesture navigation at the end (Varun's call). |
+| Edge to edge | Passes (agent, screenshots): header colour behind the status bar, bottom navigation to the bottom edge. |
+| Media notification and lock screen | Passes (Varun, P3.4). |
+| Headphone, Bluetooth and car buttons | Passes (Varun, P3.4); media keys also checked by the agent. |
+| Audio focus | Passes for calls (Varun, P3.4). Other apps' audio and ducking: handled by Media3, not checked separately. |
+| Becoming noisy | Passes (Varun, P3.4). |
+| Background playback | Passes (Varun, P3.4; agent saw the foreground service). |
+| Permissions | Passes (agent, P2.1): explanation first, refusal keeps the app working, Settings route after a second refusal. |
+| Appearance | Passes (Varun checked dark mode in phases 1 and 4 to 6). |
+| Font size and display size | To confirm (Varun). Code: rows wrap at large sizes, Now playing scrolls, the mini player grows, the equalizer's marks stop growing at 1.3x, its buttons stack. |
+| TalkBack | To confirm (Varun). Code: every icon button has a label; sliders are adjustable; row menus and queue edits are custom actions; the equalizer switch is one labelled control; dimmed equalizer controls are hidden from TalkBack while it is off. |
+| Remove animations | To confirm (Varun). Code: page changes, Now playing, Queue and Equalizer become a 150 ms fade; the visualizer stands still. |
 
 ## Where the reference is
 
@@ -53,6 +74,7 @@ Settled. Do not reverse without Varun. Add new ones at the bottom with a date.
 | A19 | 2026-10-03 | ExoPlayer is given one song at a time and Nougat's `PlayQueue` picks the next, as on iPhone. The media session talks to a `ForwardingPlayer` whose next, previous and play go to the queue, so the notification and headset buttons always offer them. The app and the service share one `Player` owned by the `App`; the activity connects a `MediaController` while visible, which starts the service. Hidden songs stay in the queue; only deleted files leave it. | Same behaviour as iPhone (shuffle, repeat, previous after 3 s, D40) with Media3 still doing focus, noisy, notification and lock screen. Not gapless, like iPhone. |
 | A20 | 2026-10-03 | The equalizer sounds through `DynamicsProcessing` on Android 9 and later: its pre-EQ stage with five bands whose edges sit halfway (in octaves) between 60, 230, 910, 3,600 and 14,000 Hz (117, 457, 1,810, 7,100, 20,000 Hz), and its input gain for the preamp and headroom (D43). Android 8 uses the platform `Equalizer`, each of its bands following the nearest of ours, with the preamp added to every band. Effects sit on an audio session Nougat creates and gives ExoPlayer. | Exact frequencies where the system allows them, and no library. The bands are steps between edges rather than the iPhone's shelves and peaks, so the shape differs a little. |
 | A21 | 2026-10-03 | The visualizer reads decoded audio through Media3's `TeeAudioProcessor`, only while Now playing is on screen and the app is in front, and turns each 1,024-frame slice into 24 bars on the playback thread. It sees the music before the platform's effects (so not the equalizer) and a buffer ahead of the speaker; marked `ponytail:` in `Player.kt` with how to delay it if the lead shows. | No microphone permission and no library; the platform effects are out of reach of the app. |
+| A22 | 2026-10-04 | The release key is kept in `~/.nougat-release/`, outside the repository; `app/build.gradle.kts` uses it when present and the debug key otherwise, so anyone can still build. Release builds are minified and resource-shrunk; APK signature scheme v2 (enough from Android 7). Version 1.0 (code 1), as on iPhone. | Keeps secrets out of a repository that may become public, without making building harder. |
 
 ## Session log
 
@@ -65,6 +87,12 @@ Newest first. Copy this template for each session:
 - Verified: built? tests run? seen on a device? Say "not verified" where true
 - Left for next: anything half-done, broken, or worth knowing
 ```
+
+### 2026-10-04, Claude (fourteenth session)
+- Tasks: committed phases 4 to 6 at Varun's request (he had tested them). Phase 7 and phase 8 up to P8.2, at his request, with screenshots only where needed. P7.4 and P8.1 finished; P7.1 to P7.3 built for Varun to confirm; P8.2 signed, release not yet published.
+- Changed: new `screens/SettingsScreen.kt` (accent swatches, Hidden link, version, licence screen), `res/raw/apache_2_0.txt`, `README.md`; Folders menu "Settings" (replaces the Hidden entry); `design/Metrics.kt` (`rememberReducedMotion`), fades with animations removed in `AppShell.kt` and `NowPlaying.kt`; large text: Now playing scrolls, mini player grows, equalizer marks capped; TalkBack: equalizer switch row, dimmed controls hidden, mini player click label; speed: titles sorted off the main thread, search and song picker off the main thread with a 150 ms pause, the Folders top folder remembered, a second simultaneous library read avoided (`Mutex`); `app/build.gradle.kts` (release signing from `~/.nougat-release/`, resource shrinking, version 1.0). Decision A22. Contract audit section above.
+- Verified: build, 30 unit tests, lint 0 errors. P7.4 with 5,018 songs on the phone (no screenshots, numbers from logcat and `dumpsys gfxinfo`): the library read takes 432 ms on a background thread and the app opens in 0.6 to 0.8 s; Songs flinging 2 janky frames of 776; opening a folder and flinging, 95th percentile 14 ms after the fixes (65 ms before); typing in search has 8 janky frames of 36 with or without results, so it is the keyboard on this phone, not the library. The 5,000 test songs were removed. The release APK verifies with the new key (`apksigner`).
+- Left for next: Varun's confirmation of P7.1 to P7.3 and his go-ahead to push and publish the release.
 
 ### 2026-10-03, Claude (thirteenth session)
 - Tasks: committed phase 3 at Varun's request (`Add playback`), after he tested P3.4 on his phone. Phases 4, 5 and 6 built in one go; Varun asked the agent not to check them on the phone, he will.

@@ -2,7 +2,10 @@ package app.nougat.design
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.isSystemInDarkTheme
+import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -58,6 +61,13 @@ fun Modifier.depth(level: Depth, shape: Shape): Modifier {
         else -> listOf(s(3, 5, tint, 0.26f), s(6, 10, tint, 0.18f))
     }
     return shadows.fold(this) { m, shadow -> m.dropShadow(shape, shadow) }
+}
+
+/** True when "Remove animations" is on in Android's settings: our animations become a short fade, the visualizer stands still. */
+@Composable
+fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
 }
 
 /** Motion from section 5, for our own animations only. The curve (0.4, 0, 0.2, 1) is Compose's FastOutSlowIn. */

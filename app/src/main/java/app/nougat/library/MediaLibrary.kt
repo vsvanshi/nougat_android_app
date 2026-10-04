@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** The permission that lets Nougat see audio files: READ_MEDIA_AUDIO from Android 13, storage before. */
@@ -32,8 +34,9 @@ val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_
 class MediaLibrary(private val context: Context) {
     private val prefs = context.getSharedPreferences("nougat", Context.MODE_PRIVATE)
 
-    /** Every song MediaStore has, hidden ones included, sorted by path. */
+    /** Every song MediaStore has, hidden ones included, sorted by path, and the same by title. */
     private var all by mutableStateOf<List<Track>>(emptyList())
+    private var allByTitle = emptyList<Track>()
 
     /** Folders and songs the user hid (decision A10). Nothing is deleted; Settings can show them again. */
     var hidden by mutableStateOf(prefs.getStringSet(HIDDEN, emptySet())!!.toSet())
@@ -109,23 +112,40 @@ class MediaLibrary(private val context: Context) {
 
     fun requestRefresh() { requests.trySend(Unit) }
 
-    /** Re-checks the permission and, with it, reads the media library again. */
+    private val reading = Mutex()
+
+    /**
+     * Re-checks the permission and, with it, reads the media library again. A call that arrives while
+     * another read is running waits for that one instead of reading twice; changes MediaStore reports
+     * meanwhile still get their own read through `follow`.
+     */
     suspend fun refresh() {
+        if (!reading.tryLock()) {
+            reading.withLock {}
+            return
+        }
+        try { readNow() } finally { reading.unlock() }
+    }
+
+    private suspend fun readNow() {
         hasAccess = checkAccess()
         if (!hasAccess) {
             all = emptyList()
+            allByTitle = emptyList()
             byPath = emptyMap()
             publish()
             return
         }
         isReading = true
         val started = System.currentTimeMillis()
-        val read = withContext(Dispatchers.IO) { read() }
+        // Sorting thousands of titles takes a moment, so it happens off the main thread too.
+        val (read, byTitle) = withContext(Dispatchers.IO) { read().let { it to it.sortedWith(compareBy(NameOrder) { t -> t.title }) } }
         Log.i("Nougat", "Read ${read.size} songs in ${System.currentTimeMillis() - started} ms")
         isReading = false
         hasRead = true
         if (read != all || readCount == 0) {
             all = read
+            allByTitle = byTitle
             byPath = read.associateBy { it.path }
             publish()
             readCount++
@@ -147,7 +167,7 @@ class MediaLibrary(private val context: Context) {
         val visible = all.filterNot { isHidden(it.path, hidden) }
         if (visible != tracks) {
             tracks = visible
-            tracksByTitle = visible.sortedWith(compareBy(NameOrder) { it.title })
+            tracksByTitle = allByTitle.filterNot { isHidden(it.path, hidden) }
         }
     }
 

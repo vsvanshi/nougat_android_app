@@ -73,6 +73,7 @@ import app.nougat.design.LocalOverHeader
 import app.nougat.design.Motion
 import app.nougat.design.NoticeHost
 import app.nougat.design.Type
+import app.nougat.design.rememberReducedMotion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -87,6 +88,8 @@ sealed interface Screen {
     data object Hidden : Screen
     data class Playlist(val id: String) : Screen
     data class SongPicker(val playlist: String) : Screen
+    data object Settings : Screen
+    data class Licence(val name: String) : Screen
 }
 
 enum class Tab(val label: String, @DrawableRes val icon: Int, val root: Screen) {
@@ -106,6 +109,7 @@ val LocalNotices = staticCompositionLocalOf { SnackbarHostState() }
 fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
     val colors = LocalColors.current
     val context = LocalContext.current
+    val still = rememberReducedMotion()
     val app = context.applicationContext as App
     val library = app.library
     val artwork = app.artwork
@@ -155,9 +159,9 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
                                     backStack = stack,
                                     onBack = { stack.removeLastOrNull() },
                                     sharedTransitionScope = this,
-                                    transitionSpec = { push },
-                                    popTransitionSpec = { pop },
-                                    predictivePopTransitionSpec = { pop },
+                                    transitionSpec = { if (still) fade else push },
+                                    popTransitionSpec = { if (still) fade else pop },
+                                    predictivePopTransitionSpec = { if (still) fade else pop },
                                     entryProvider = entryProvider {
                                         val push = { s: Screen -> stack.add(s); Unit }
                                         val pop = { stack.removeLastOrNull(); Unit }
@@ -169,6 +173,8 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
                                         entry<Screen.Hidden> { HiddenScreen(pop) }
                                         entry<Screen.Playlist> { PlaylistScreen(it.id, push, pop) }
                                         entry<Screen.SongPicker> { SongPickerScreen(it.playlist, pop) }
+                                        entry<Screen.Settings> { SettingsScreen(accent, onAccent, push, pop) }
+                                        entry<Screen.Licence> { LicenceScreen(it.name, pop) }
                                         entry<Screen.Gallery> { Gallery(accent, onAccent, pop) }
                                     },
                                 )
@@ -198,8 +204,8 @@ fun AppShell(accent: Accent, onAccent: (Accent) -> Unit) {
             }
             AnimatedVisibility(
                 nowPlaying,
-                enter = slideInVertically(tween(Motion.entering, easing = Motion.easing)) { it },
-                exit = slideOutVertically(tween(Motion.leaving, easing = Motion.easing)) { it },
+                enter = if (still) fadeIn(tween(Motion.fade)) else slideInVertically(tween(Motion.entering, easing = Motion.easing)) { it },
+                exit = if (still) fadeOut(tween(Motion.fade)) else slideOutVertically(tween(Motion.leaving, easing = Motion.easing)) { it },
             ) {
                 NowPlayingScreen(nowPlayingOverHeader, onClose = { nowPlaying = false })
             }
@@ -224,6 +230,9 @@ private val pop = ContentTransform(
     slideOutHorizontally(tween(Motion.standard, easing = Motion.easing)) { it },
     targetContentZIndex = -1f,
 )
+
+/** With animations removed, pages change with a short fade. */
+private val fade = ContentTransform(fadeIn(tween(Motion.fade)), fadeOut(tween(Motion.fade)))
 
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 
@@ -295,6 +304,8 @@ private fun Screen.encode() = when (this) {
     Screen.Hidden -> "hidden"
     is Screen.Playlist -> "playlist:$id"
     is Screen.SongPicker -> "picker:$playlist"
+    Screen.Settings -> "settings"
+    is Screen.Licence -> "licence:$name"
 }
 
 private fun decode(s: String) = when (s) {
@@ -303,9 +314,11 @@ private fun decode(s: String) = when (s) {
     "search" -> Screen.Search
     "gallery" -> Screen.Gallery
     "hidden" -> Screen.Hidden
+    "settings" -> Screen.Settings
     else -> when {
         s.startsWith("playlist:") -> Screen.Playlist(s.removePrefix("playlist:"))
         s.startsWith("picker:") -> Screen.SongPicker(s.removePrefix("picker:"))
+        s.startsWith("licence:") -> Screen.Licence(s.removePrefix("licence:"))
         else -> Screen.Folder(s.removePrefix("folder:"))
     }
 }

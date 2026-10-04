@@ -19,7 +19,14 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import app.nougat.design.rememberReducedMotion
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,6 +78,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -116,12 +124,12 @@ fun MiniPlayer(onOpen: () -> Unit) {
     val player = LocalPlayer.current
     val track = player.current ?: return
     Row(
-        Modifier.depth(Depth.One, RoundedCornerShape(0.dp)).background(colors.surface).fillMaxWidth().height(64.dp),
+        Modifier.depth(Depth.One, RoundedCornerShape(0.dp)).background(colors.surface).fillMaxWidth().heightIn(min = 64.dp).height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             Modifier.weight(1f).fillMaxSize().pressable(RoundedCornerShape(0.dp), onOpen).padding(start = Metrics.margin)
-                .semantics(mergeDescendants = true) {},
+                .semantics(mergeDescendants = true) { onClick(label = "Open Now playing") { onOpen(); true } },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TrackThumbnail(track)
@@ -157,6 +165,7 @@ fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
     var backProgress by remember { mutableFloatStateOf(0f) }
     val drag = remember { Animatable(0f) }
     val closeAt = with(LocalDensity.current) { 160.dp.toPx() }
+    val still = rememberReducedMotion()
     var queueShown by remember { mutableStateOf(false) }
     var equalizerShown by remember { mutableStateOf(false) }
     SideEffect { overHeader.value = !queueShown && !equalizerShown }
@@ -199,24 +208,20 @@ fun NowPlayingScreen(overHeader: MutableState<Boolean>, onClose: () -> Unit) {
             )
             player.current?.let { Details(it, onEqualizer = { equalizerShown = true }) }
         }
-        AnimatedVisibility(
-            queueShown,
-            enter = slideInHorizontally(tween(Motion.standard)) { it },
-            exit = slideOutHorizontally(tween(Motion.standard)) { it },
-        ) {
+        AnimatedVisibility(queueShown, enter = overlayIn(still), exit = overlayOut(still)) {
             BackHandler { queueShown = false }
             QueueScreen(onBack = { queueShown = false })
         }
-        AnimatedVisibility(
-            equalizerShown,
-            enter = slideInHorizontally(tween(Motion.standard)) { it },
-            exit = slideOutHorizontally(tween(Motion.standard)) { it },
-        ) {
+        AnimatedVisibility(equalizerShown, enter = overlayIn(still), exit = overlayOut(still)) {
             BackHandler { equalizerShown = false }
             EqualizerScreen(onBack = { equalizerShown = false })
         }
     }
 }
+
+/** Queue and Equalizer slide in over Now playing; with animations removed, they fade. */
+private fun overlayIn(still: Boolean) = if (still) fadeIn(tween(Motion.fade)) else slideInHorizontally(tween(Motion.standard)) { it }
+private fun overlayOut(still: Boolean) = if (still) fadeOut(tween(Motion.fade)) else slideOutHorizontally(tween(Motion.standard)) { it }
 
 /**
  * The cover with the visualizer: a low strip over a cover, or the whole area on the header colour
@@ -290,8 +295,9 @@ private fun ColumnScope.Details(track: Track, onEqualizer: () -> Unit) {
     val player = LocalPlayer.current
     val addTo = LocalAddToPlaylist.current
     val equalizer = LocalEqualizer.current
-    // ponytail: at the largest text sizes this may need to scroll (P7.3, iPhone D59).
-    Column(Modifier.padding(horizontal = Metrics.margin).weight(1f)) {
+    // Scrolls rather than clips at the largest text sizes; the equalizer shortcut stays at the bottom.
+    Column(Modifier.weight(1f)) {
+    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Metrics.margin)) {
         Row(Modifier.padding(top = Metrics.margin), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
                 Text(track.title, style = Type.title, color = colors.ink, maxLines = 2)
@@ -320,6 +326,7 @@ private fun ColumnScope.Details(track: Track, onEqualizer: () -> Unit) {
                 "Repeat ${player.repeatMode.name.lowercase()}", player.repeatMode != RepeatMode.Off, { player.cycleRepeat() },
             )
         }
+    }
         Spacer(Modifier.weight(1f).height(Metrics.margin))
         // The shortcut names the preset in use, or just says "Equalizer" when it is off.
         Row(

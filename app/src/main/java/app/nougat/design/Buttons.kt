@@ -146,9 +146,9 @@ fun ToggleIcon(@DrawableRes icon: Int, label: String, on: Boolean, onToggle: (Bo
     }
 }
 
-/** The Material switch tinted switchOn; its knob is always light. */
+/** The Material switch tinted switchOn; its knob is always light. Pass no `onCheckedChange` when the whole row toggles it. */
 @Composable
-fun Toggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun Toggle(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
     val colors = LocalColors.current
     Switch(
         checked, onCheckedChange, modifier,

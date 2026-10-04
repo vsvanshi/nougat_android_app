@@ -72,6 +72,9 @@ import app.nougat.library.search
 import app.nougat.playlists.Playlist
 import app.nougat.playlists.Playlists
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 val LocalPlaylists = staticCompositionLocalOf<Playlists> { error("No playlists") }
@@ -261,8 +264,10 @@ fun SongPickerScreen(id: String, back: () -> Unit) {
     var chosen by remember { mutableStateOf(setOf<String>()) }
     val already = playlists[id]?.songs.orEmpty().toSet()
     // Both are already in title order.
-    val tracks = remember(library.tracks, query) {
-        (if (query.isBlank()) library.tracksByTitle else library.tracks.search(query).tracks).filter { it.isPlayable }
+    val tracks by produceState(emptyList(), library.tracks, query) {
+        value = withContext(Dispatchers.Default) {
+            (if (query.isBlank()) library.tracksByTitle else library.tracks.search(query).tracks).filter { it.isPlayable }
+        }
     }
 
     Column(Modifier.fillMaxSize().background(colors.paper)) {

@@ -1,6 +1,5 @@
 package app.nougat.visualizer
 
-import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,7 +24,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.rotateRad
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -34,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.sp
 import app.nougat.design.LightColors
+import app.nougat.design.rememberReducedMotion
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -78,8 +77,7 @@ fun Visualizer(
     /** How far through the song, 0 to 1. Read on every frame, so it must be cheap. */
     progress: () -> Float = { 0f },
 ) {
-    val context = LocalContext.current
-    val still = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    val still = rememberReducedMotion()
     val motion = remember { Motion() }
     var frame by remember { mutableLongStateOf(0L) }
     // Keeps the clock running for a moment after a pause, so things can come to rest.
